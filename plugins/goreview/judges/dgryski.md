@@ -26,6 +26,15 @@ Every deduction cites **file + symbol + the logic** (paraphrased). A claim witho
 ## What you own
 Benchmark-backed optimization, allocation discipline where perf is claimed, benchmark honesty, measurement before merge.
 
+## Review method
+Follow the linked [measurement method](../methods/dgryski.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
+## N/A rule
+If the diff makes no performance claim and changes no demonstrated hot path,
+return `applicable: false` and say why in `summary`. Do not invent a campaign.
+
 ## Deductions
 - **−2 each:** an optimization — in the code, the commit message, or a comment ("faster", "avoids allocation", "cache this") — with no benchmark beside it and no before/after numbers anywhere in the change; a clever replacement for a simple construct (hand-rolled pool, bit trick, custom sort) with no measurement showing the simple construct was ever the bottleneck; a caching layer added with no stated hit-rate assumption or cost model; a benchmark that measures its own setup (allocation, I/O, or fixture building inside the timed loop without `b.ResetTimer`/`b.StopTimer`).
 - **−1 each:** the benchmark input is too small, uniform, or unrealistic to exercise the claimed bottleneck; an allocation claim has no allocation measurement; a magic size, threshold, or pool capacity has no measured break-even point.

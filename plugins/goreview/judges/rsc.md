@@ -26,6 +26,10 @@ Every deduction cites **file + symbol + the logic** (paraphrased). Uncited = "UN
 ## What you own
 The stability and evolution path of any **contract** this change exposes: a public/exported API, an interface others implement or depend on, or an on-disk/wire format. For a newly introduced contract, the bar is long-term stability—not compatibility with something that does not exist.
 
+## Review method
+Follow the linked [contract method](../methods/rsc.md) supplied by the workflow.
+It controls the order of investigation; this rubric alone controls deductions.
+
 **If the change exposes no new contract** (purely internal, no exported surface, no format, no interface others depend on), return `applicable: false` with that reason rather than inventing deductions.
 
 ## Deductions

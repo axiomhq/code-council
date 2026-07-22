@@ -58,6 +58,7 @@ test('review.json is the canonical Go roster and round configuration', () => {
   const reviewConfig = pluginJson('review.json')
   const labels = reviewConfig.judges.map(({ label }) => label)
   const paths = reviewConfig.judges.map(judge => `./${judge.path}`)
+  const methods = reviewConfig.judges.map(judge => judge.method)
   const claudePlugin = pluginJson('.claude-plugin/plugin.json')
 
   assert.equal(reviewConfig.id, 'goreview')
@@ -68,13 +69,23 @@ test('review.json is the canonical Go roster and round configuration', () => {
   assert.equal(reviewConfig.fixer, 'fixer')
   assert.match(reviewConfig.verification, /go build.*go test.*go vet/i)
   assert.equal(new Set(labels).size, 11)
+  assert.equal(new Set(methods).size, labels.length)
   assert.equal(new Set(reviewConfig.conflictPriority).size, labels.length)
   assert.deepEqual([...reviewConfig.conflictPriority].sort(), [...labels].sort())
   assert.equal(reviewConfig.defaultJudges.every(label => labels.includes(label)), true)
 
   for (const judge of reviewConfig.judges) {
     assert.equal(fs.existsSync(path.join(pluginRoot, judge.path)), true, `missing ${judge.path}`)
+    assert.equal(fs.existsSync(path.join(pluginRoot, judge.method)), true, `missing ${judge.method}`)
     assert.match(frontmatter(readPlugin(judge.path)), new RegExp(`^name:\\s*${judge.label}$`, 'm'))
+    assert.equal(readPlugin(judge.path).includes(`../${judge.method}`), true, `${judge.path} must link its method`)
+
+    const method = readPlugin(judge.method)
+    assert.match(method, /^# .+ method$/m)
+    assert.match(method, /^## Review sequence$/m)
+    assert.match(method, /^## Evidence to seek$/m)
+    assert.match(method, /^## Stop condition$/m)
+    assert.doesNotMatch(method, /^## Deductions$/m)
   }
 
   assert.deepEqual(
@@ -144,6 +155,7 @@ test('host adapters share one protocol and one review configuration', () => {
     assert.match(source, /review\.json/)
     assert.match(source, /policy\.md/)
     assert.match(source, /maxReviewRounds/)
+    assert.match(source, /method/i)
     assert.match(source, /only.*fixer|fixer.*only/is)
   }
 
@@ -228,9 +240,14 @@ test('the engine and command document the same terminal verdicts', () => {
 test('per-judge JSON leads with the score and keeps explanations short', () => {
   const protocol = readPlugin('protocol.md')
   const workflow = readPlugin('workflow.js')
+  const command = readPlugin('commands/goreview.md')
 
   assert.match(protocol, /score.*verdict.*come\s+first/is)
-  assert.match(protocol, /one short sentence/i)
-  assert.match(workflow, /MAX_EXPLANATION_CHARS\s*=\s*500/)
-  assert.match(workflow, /Keep the summary, each explanation.*one short sentence/is)
+  assert.match(protocol, /at most 200 characters/i)
+  assert.match(protocol, /at most four cited\s+deductions/i)
+  assert.match(workflow, /MAX_EXPLANATION_CHARS\s*=\s*200/)
+  assert.match(workflow, /MAX_RENDERED_DEDUCTIONS\s*=\s*4/)
+  assert.match(workflow, /Do not include reproduction narration/i)
+  assert.match(command, /scorecard.*exactly once/is)
+  assert.match(command, /Do not repeat deductions.*narrate the run/is)
 })

@@ -27,6 +27,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). A claim witho
 ## What you own
 Trust boundaries, cryptographic correctness, secret handling, injection surface, unsafe deserialization.
 
+## Review method
+Follow the linked [threat-model method](../methods/filosottile.md) supplied by
+the workflow. It controls the order of investigation; this rubric alone
+controls deductions.
+
 ## N/A rule
 If the diff touches no untrusted input, no crypto, no secrets, and no privilege decision, return `applicable: false` and say why in `summary`. Do not stretch.
 

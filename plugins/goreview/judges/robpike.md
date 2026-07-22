@@ -29,6 +29,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). A claim witho
 ## What you own
 Concept count, data-flow clarity, deletability.
 
+## Review method
+Follow the linked [simplicity method](../methods/robpike.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 ## Deductions
 - **−2 each:** unnecessary abstraction or indirection; an interface where a concrete type works; more than one way to do the same thing; a generic/parameterized API where there's exactly one caller and no second implementation on the horizon.
 - **−1 each:** high concept count for the problem size; naming that only makes sense with external context.

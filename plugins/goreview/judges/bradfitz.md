@@ -26,6 +26,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). Uncited = "UN
 ## What you own
 Decode/input safety, allocation bounds, corruption handling, failure isolation.
 
+## Review method
+Follow the linked [hostile-input method](../methods/bradfitz.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 ## Deductions
 - **−2 each:** unbounded allocation driven by input; trusting a serialized length or offset without checking bounds, overflow, and what's actually available; a partial read/write or dependency failure can leave corrupt or unrecoverable state; no defined behavior for an unknown field, frame, or version where the input format can evolve.
 - **−1 each:** an error path loses the operation, offset, or peer needed to diagnose the failure; an error is swallowed or returned without the underlying cause callers need to classify or recover from it.

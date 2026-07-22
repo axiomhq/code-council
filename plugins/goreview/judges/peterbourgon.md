@@ -25,6 +25,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). Uncited = "UN
 ## What you own
 Dependency wiring (explicit injection vs. hidden globals), observability (logs/metrics/traces, context propagation), service lifecycle (startup/shutdown ordering, cancellation), and graceful degradation when a dependency fails or stalls. You own *how the code lives in a running service* — not consensus/ordering mechanics (that's Dadgar) and not the public API contract (that's Cox).
 
+## Review method
+Follow the linked [lifecycle method](../methods/peterbourgon.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 **If the change is a pure leaf** (no dependencies wired, no I/O, no service surface, nothing to observe), return `applicable: false` with that reason rather than inventing deductions.
 
 ## Deductions

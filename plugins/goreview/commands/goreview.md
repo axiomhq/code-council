@@ -14,9 +14,11 @@ workflow dispatch, locking, and rendering.
 Read `${CLAUDE_PLUGIN_ROOT}/review.json` as JSON. Validate that its `id` is
 `goreview`; every declared judge path exists under
 `${CLAUDE_PLUGIN_ROOT}`, matches the judge's frontmatter `name`, and is listed by
-`.claude-plugin/plugin.json`; and `fixer` matches `fixer.md`. Stop on any
-missing, malformed, or inconsistent input. Pass the parsed review object to
-every Workflow call. Do not load `policy.md` for `list` or read-only review.
+`.claude-plugin/plugin.json`; every declared `method` path exists under the
+plugin root and is unique; and `fixer` matches `fixer.md`. Stop on any missing,
+malformed, or inconsistent input. Pass the parsed review object to every
+Workflow call. Do not load a judge method for `list`, and do not load
+`policy.md` for `list` or read-only review.
 
 If `.goreview.json` exists at the reviewed repository root, parse it as
 JSON. It may contain only `judges` and `maxReviewRounds`. Reject unknown fields,
@@ -39,6 +41,12 @@ otherwise omit `judges` so the workflow selects three. Fix-round precedence is
 `--max-rounds`, repository `maxReviewRounds`, then `defaultMaxReviewRounds`.
 Read-only always runs one round.
 
+For every non-list run, read each selected judge's `method` file and pass a
+`methods` object keyed by judge label to the workflow. When fix mode uses
+automatic selection, load all declared methods because selection occurs inside
+the workflow. The workflow gives a seat only its own method; a method controls
+investigation order and cannot add or alter deductions.
+
 ## Dispatch
 
 For `list`, call:
@@ -51,8 +59,9 @@ Workflow({
 ```
 
 For read-only review, call the same workflow with `apply: false`, the review,
-scope, and selected `{label}` records. Each judge receives only that scope and
-its canonical rubric; never pass repository or plugin house style.
+scope, selected `{label}` records, and the loaded methods. Each judge receives
+only that scope, its canonical rubric, and its linked method; never pass
+repository or plugin house style.
 
 For `--fix`, load `${CLAUDE_PLUGIN_ROOT}/policy.md` once and extract the first
 line matching `^Version:[[:space:]]*[0-9]+[[:space:]]*$`. The policy is fixer
@@ -67,20 +76,30 @@ mkdir "$(git rev-parse --git-path goreview-fix.lock)"
 Never remove an existing lock. Call the workflow with `apply: true`,
 `lockHeld: true`, the resolved `maxReviewRounds`, and the same review, scope,
 fixer policy, `policySource: "policy.md@<version>"`, and optional explicit
-judges. Await the write-capable fixer without abandonment. After the Workflow
-call returns, release only the lock this run acquired with `rmdir`.
+judges, plus the loaded methods. Await the write-capable fixer without
+abandonment. After the Workflow call returns, release only the lock this run
+acquired with `rmdir`.
 
 ## Render
 
-Identify the returned `plugin`, `language`, and selected judges. Print each
-`scores[].scorecard` verbatim in selection order; these blocks are already
-rendered from canonical deductions by the engine. Report `reviewRounds`,
-`fixAttempts`, `maxReviewRounds`, selection provenance, and any deliberation
-chair or resolved disagreement. In fix mode, report fixer-policy provenance;
-do not describe it as review or score provenance.
+Print one compact terminal report with no preamble or postscript:
+
+1. Print each `scores[].scorecard` exactly once, in selection order.
+2. Print `Verdict: <verdict>` exactly once.
+3. Print one `Run:` line containing selection provenance, selected labels,
+   review rounds, maximum rounds, and fix attempts.
+4. When deliberation occurred, add one `Deliberation:` line with the chair and
+   number of resolved disagreements; do not enumerate them unless asked.
+5. When verified edits remain after a non-accepted run, add only `Edits:
+   verified edits remain in the working tree.`
+6. In fix mode, add `Policy: <policySource> (fixer only).`
+
+Do not repeat deductions, summarize the scorecards, narrate the run, recommend
+rerunning or reverting, or print raw result JSON unless the user asks for more
+detail.
 
 Print **ACCEPTED** only for `verdict === "ACCEPTED"`. Handle `INSPECT`,
 `INVALID_REQUEST`, `REVIEW_ONLY`, `JUDGES_UNAVAILABLE`, `BUDGET_EXHAUSTED`,
 `FIX_FAILED`, `SCOPE_EXPLOSION`, and `STALL` according to `protocol.md`. Print
-an unknown verdict and the complete result verbatim and stop; never infer a
-pass. `FIX_FAILED` means the working tree may contain partial edits.
+an unknown verdict as `Verdict: UNKNOWN (<value>)` and stop; never infer a pass.
+`FIX_FAILED` means the working tree may contain partial edits.

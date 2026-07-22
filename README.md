@@ -141,30 +141,34 @@ The plugin has one canonical source for every review concept:
 
 | Path | Owns |
 |---|---|
-| [`review.json`](plugins/goreview/review.json) | Identity, judge roster, defaults, priorities, verification, and round limits |
+| [`review.json`](plugins/goreview/review.json) | Identity, judge roster, rubric and method links, defaults, priorities, verification, and round limits |
 | [`protocol.md`](plugins/goreview/protocol.md) | Host-neutral review and fix contract |
 | [`policy.md`](plugins/goreview/policy.md) | Go implementation guidance supplied only to the fixer |
 | [`judges/`](plugins/goreview/judges/) | One canonical rubric file per named judge |
+| [`methods/`](plugins/goreview/methods/) | One linked investigation method per named judge |
 | [`workflow.js`](plugins/goreview/workflow.js) | Deduction engine and scorecard renderer |
 | [`fixer.md`](plugins/goreview/fixer.md) | The only write-capable agent |
 | [`commands/goreview.md`](plugins/goreview/commands/goreview.md) | Thin Claude adapter |
 | [`skills/goreview/`](plugins/goreview/skills/goreview/) | Thin Codex adapter |
 
 Claude's manifest links directly to the canonical judge files. Codex's skill
-reads those same files. Judge rubrics are never copied between adapters, and
-judge scores use only the selected rubric plus cited repository evidence. The
-implementation policy is loaded only in fix mode and supplied only to the
-fixer.
+reads those same files. Both resolve each selected judge's method through
+`review.json`; rubrics and methods are never copied between adapters. Judge
+scores use only the selected rubric plus cited repository evidence. The method
+orders the investigation but cannot add deductions. The implementation policy
+is loaded only in fix mode and supplied only to the fixer.
 
 See [the architecture](docs/architecture.md) for ownership and data flow.
 
 ## Add a judge
 
 1. Add one rubric under `plugins/goreview/judges/<label>.md`.
-2. Add its label, display name, lens, and path to `review.json`.
-3. Add the label once to `conflictPriority`.
-4. Add the judge path to `.claude-plugin/plugin.json`.
-5. Run the validation suite below.
+2. Add one investigation method under `plugins/goreview/methods/<label>.md`.
+3. Add its label, display name, lens, rubric path, and method path to
+   `review.json`.
+4. Add the label once to `conflictPriority`.
+5. Add the judge path to `.claude-plugin/plugin.json`.
+6. Run the validation suite below.
 
 Judge labels use lowercase letters, digits, and hyphens and are capped at 64
 characters.

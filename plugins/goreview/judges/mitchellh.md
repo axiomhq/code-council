@@ -27,6 +27,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). A claim witho
 ## What you own
 Seam placement, policy-vs-mechanism separation, dependency injection, package consumability, extension without modification.
 
+## Review method
+Follow the linked [boundary method](../methods/mitchellh.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 ## Deductions
 - **−2 each:** policy welded to mechanism (retry counts, timeouts, backoff, case-folding, or tuning decisions fixed inside a component its caller must own); a dependency or resource lifetime hidden inside a component when callers need to provide, replace, or close it; a package that cannot be consumed without importing application state; an exported API that leaks an internal representation a second consumer would be forced to adopt.
 - **−1 each:** ownership crosses a boundary without saying who closes, frees, or cancels it; a boundary that exists to hide a transport nevertheless returns transport-specific types; configuration is discovered from global process state below the composition edge.

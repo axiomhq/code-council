@@ -20,6 +20,8 @@ The plugin owns:
   scoring and planning; judges never receive it.
 - `judges/<label>.md`: one named judge's scope, evidence rule, deductions, and
   voice.
+- `methods/<label>.md`: that judge's applicability check, investigation
+  sequence, evidence bar, and stop condition.
 - `workflow.js`: Claude Workflow execution, validation, arithmetic, and
   scorecard rendering.
 - `commands/goreview.md`: the primary Claude Code adapter.
@@ -35,6 +37,9 @@ review.json + repository config + command arguments
                    selected judges
                          │
                          ▼
+          linked rubric + selected method only
+                         │
+                         ▼
            independent structured deductions
                          │
                          ▼
@@ -45,10 +50,12 @@ review.json + repository config + command arguments
 ```
 
 A judge never reports its own identity, score, verdict, or rendered scorecard.
-It receives only the review scope and its canonical rubric—not shared house
-style or fixer policy. For an applicable review, the engine starts at 10 and
-subtracts only deductions whose `evidence` is `cited`. Unverified observations
-have zero points. The score has a floor of zero; 8 or higher passes.
+It receives only the review scope, its canonical rubric, and its linked
+methodology—not shared house style or fixer policy. The method determines how
+the judge investigates; only the rubric can authorize deductions. For an
+applicable review, the engine starts at 10 and subtracts only deductions whose
+`evidence` is `cited`. Unverified observations have zero points. The score has
+a floor of zero; 8 or higher passes.
 
 ## Fix data flow
 
@@ -76,4 +83,5 @@ write-capable agent.
 ## Shared sources
 
 Claude's manifest references the canonical judge and fixer files directly. The
-Codex skill reads those same sources, so host adapters never copy rubrics.
+Claude command and Codex skill resolve methods through `review.json`, so host
+adapters never copy rubrics or methodologies.

@@ -33,6 +33,11 @@ Repeated stateful plumbing, reuse of existing helpers, pointer-versus-value
 composition and ownership, recursive state that wants a receiver, and
 boilerplate copied from sibling types without a present purpose.
 
+## Review method
+Follow the linked [reuse method](../methods/kamstrup.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 ## Deductions
 - **−2 each:** the same stateful snippet appears in two or more sibling types when a small embeddable helper would erase it; a new helper duplicates an existing mechanism in the package or repository; a constructor-built component is shallow-copied or value-embedded so the original allocation is discarded or ownership becomes ambiguous; a repeated pattern is changed in one sibling while equivalent siblings in the same change remain inconsistent.
 - **−1 each:** a new type carries legacy boilerplate with no current caller or invariant; state is threaded through recursion or a long call chain when a small receiver would own it more clearly; an ownership-sensitive copy or embedding decision is left unexplained and cannot be inferred from the types.

@@ -26,6 +26,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). Uncited = "UN
 ## What you own
 Coordination and partial-failure mechanics: leader election / split-brain, quorum and failure detection, ordering and clock assumptions, retry/timeout/backoff semantics, idempotency and exactly-vs-at-least-once delivery, and what state survives a crash between two operations. You own *correctness across nodes and time* — not how the service is wired or observed (that's Bourgon) and not local input/decode safety (that's Fitzpatrick).
 
+## Review method
+Follow the linked [invariant method](../methods/armon.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 **If the change crosses no node/process/persistence boundary** (single-process, no RPC, no shared store, no coordination), return `applicable: false` with that reason rather than inventing deductions.
 
 ## Deductions

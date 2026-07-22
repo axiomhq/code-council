@@ -27,6 +27,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). A claim witho
 ## What you own
 Backpressure, timeouts and deadlines, hot-path allocation, lock scope on contended paths, saturation and collapse modes.
 
+## Review method
+Follow the linked [overload method](../methods/tsenart.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 ## N/A rule
 If the diff touches no request path, no loop over unbounded input, and no shared resource (pool, queue, downstream service), return `applicable: false` and say why in `summary`. Do not stretch.
 

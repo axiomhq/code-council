@@ -30,67 +30,78 @@
       "label": "robpike",
       "displayName": "Rob Pike",
       "lens": "Simplicity",
-      "path": "judges/robpike.md"
+      "path": "judges/robpike.md",
+      "method": "methods/robpike.md"
     },
     {
       "label": "bradfitz",
       "displayName": "Brad Fitzpatrick",
       "lens": "Safety",
-      "path": "judges/bradfitz.md"
+      "path": "judges/bradfitz.md",
+      "method": "methods/bradfitz.md"
     },
     {
       "label": "rsc",
       "displayName": "Russ Cox",
       "lens": "Longevity",
-      "path": "judges/rsc.md"
+      "path": "judges/rsc.md",
+      "method": "methods/rsc.md"
     },
     {
       "label": "mitchellh",
       "displayName": "Mitchell Hashimoto",
       "lens": "Composition & Boundaries",
-      "path": "judges/mitchellh.md"
+      "path": "judges/mitchellh.md",
+      "method": "methods/mitchellh.md"
     },
     {
       "label": "kamstrup",
       "displayName": "Mikkel Kamstrup Erlandsen",
       "lens": "Composition & Reuse",
-      "path": "judges/kamstrup.md"
+      "path": "judges/kamstrup.md",
+      "method": "methods/kamstrup.md"
     },
     {
       "label": "peterbourgon",
       "displayName": "Peter Bourgon",
       "lens": "Operability",
-      "path": "judges/peterbourgon.md"
+      "path": "judges/peterbourgon.md",
+      "method": "methods/peterbourgon.md"
     },
     {
       "label": "armon",
       "displayName": "Armon Dadgar",
       "lens": "Distributed Correctness",
-      "path": "judges/armon.md"
+      "path": "judges/armon.md",
+      "method": "methods/armon.md"
     },
     {
       "label": "tsenart",
       "displayName": "Tomás Senart",
       "lens": "Behavior Under Load",
-      "path": "judges/tsenart.md"
+      "path": "judges/tsenart.md",
+      "method": "methods/tsenart.md"
     },
     {
       "label": "dgryski",
       "displayName": "Damian Gryski",
       "lens": "Measured Performance",
-      "path": "judges/dgryski.md"
+      "path": "judges/dgryski.md",
+      "method": "methods/dgryski.md"
     },
     {
       "label": "filosottile",
       "displayName": "Filippo Valsorda",
       "lens": "Security Posture",
-      "path": "judges/filosottile.md"
+      "path": "judges/filosottile.md",
+      "method": "methods/filosottile.md"
     },
     {
       "label": "rakyll",
       "displayName": "Jaana Dogan",
       "lens": "Profiling & Diagnosability",
-      "path": "judges/rakyll.md"
+      "path": "judges/rakyll.md",
+      "method": "methods/rakyll.md"
     }
   ]
 }

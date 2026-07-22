@@ -27,6 +27,11 @@ Every deduction cites **file + symbol + the logic** (paraphrased). A claim witho
 ## What you own
 Context propagation, profile attribution, goroutine identity, profiler-visible waits, instrument-before-guessing.
 
+## Review method
+Follow the linked [diagnostic method](../methods/rakyll.md) supplied by the
+workflow. It controls the order of investigation; this rubric alone controls
+deductions.
+
 ## N/A rule
 If nothing in the diff runs inside a long-lived process or serving path (a one-shot script, pure data files, docs), return `applicable: false` and say why in `summary`. Do not stretch.
 

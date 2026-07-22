@@ -14,7 +14,11 @@ const workflow = new AsyncFunction('args', 'log', 'phase', 'agent', 'parallel', 
 
 const defaultParallel = async tasks => Promise.all(tasks.map(task => task()))
 const noBudget = { remaining: () => null }
-const baseArgs = { review: reviewConfig }
+const methods = Object.fromEntries(reviewConfig.judges.map(judge => [
+  judge.label,
+  fs.readFileSync(path.join(pluginRoot, judge.method), 'utf8'),
+]))
+const baseArgs = { review: reviewConfig, methods }
 const fixArgs = { ...baseArgs, policy: 'house style', policySource: 'policy.md@1' }
 
 const deduction = (points, overrides = {}) => ({
@@ -103,15 +107,45 @@ test('configuration and required fix inputs fail closed before spawning agents',
   const noReview = await run({ args: {}, agent })
   assert.equal(noReview.reason, 'CONFIG_INVALID')
 
-  const noFixPolicy = await run({ args: { review: reviewConfig, apply: true, lockHeld: true }, agent })
+  const noFixPolicy = await run({ args: { ...baseArgs, apply: true, lockHeld: true }, agent })
   assert.equal(noFixPolicy.reason, 'FIX_POLICY_REQUIRED')
 
-  const noFixSource = await run({ args: { review: reviewConfig, apply: true, lockHeld: true, policy: 'x' }, agent })
+  const noFixSource = await run({ args: { ...baseArgs, apply: true, lockHeld: true, policy: 'x' }, agent })
   assert.equal(noFixSource.reason, 'FIX_POLICY_SOURCE_REQUIRED')
 
   const noLock = await run({ args: { ...fixArgs, apply: true }, agent })
   assert.equal(noLock.reason, 'LOCK_REQUIRED')
   assert.equal(calls, 0)
+})
+
+test('selected judges require their linked methodologies', async () => {
+  let calls = 0
+  const result = await run({
+    args: { review: reviewConfig, methods: {}, judges: [{ label: 'robpike' }] },
+    agent: async () => { calls++; return review() },
+  })
+
+  assert.equal(result.verdict, 'INVALID_REQUEST')
+  assert.equal(result.reason, 'METHODS_INVALID')
+  assert.deepEqual(result.missingMethods, ['robpike'])
+  assert.equal(calls, 0)
+})
+
+test('each review seat receives only its selected methodology', async () => {
+  const prompts = new Map()
+  const result = await run({
+    args: { ...baseArgs, judges: [{ label: 'robpike' }, { label: 'bradfitz' }] },
+    agent: async (prompt, options) => {
+      prompts.set(options.label, prompt)
+      return review()
+    },
+  })
+
+  assert.equal(result.verdict, 'ACCEPTED')
+  assert.match(prompts.get('judge:robpike'), /# Rob Pike method/)
+  assert.doesNotMatch(prompts.get('judge:robpike'), /# Brad Fitzpatrick method/)
+  assert.match(prompts.get('judge:bradfitz'), /# Brad Fitzpatrick method/)
+  assert.doesNotMatch(prompts.get('judge:bradfitz'), /# Rob Pike method/)
 })
 
 test('the engine derives scores, verdicts, and scorecards from deductions', async () => {
@@ -125,8 +159,9 @@ test('the engine derives scores, verdicts, and scorecards from deductions', asyn
   assert.deepEqual(Object.keys(pass.scores[0]).slice(0, 2), ['score', 'verdict'])
   assert.equal(pass.scores[0].score, 8)
   assert.equal(pass.scores[0].verdict, 'PASS')
-  assert.match(pass.scores[0].scorecard, /ROB PIKE — Simplicity: 8\/10/)
-  assert.match(pass.scores[0].scorecard, /−2.*\[cited\]/)
+  assert.match(pass.scores[0].scorecard, /ROB PIKE — Simplicity: 8\/10 — PASS/)
+  assert.match(pass.scores[0].scorecard, /−2/)
+  assert.doesNotMatch(pass.scores[0].scorecard, /change:/)
 
   const fail = await run({
     args: { ...baseArgs, judges: judge },
@@ -135,14 +170,14 @@ test('the engine derives scores, verdicts, and scorecards from deductions', asyn
   assert.equal(fail.verdict, 'REVIEW_ONLY')
   assert.equal(fail.scores[0].score, 7)
   assert.equal(fail.scores[0].verdict, 'FAIL')
-  assert.match(fail.scores[0].scorecard, /If FAIL: apply the cited fix/)
+  assert.match(fail.scores[0].scorecard, /Top fix: apply the cited fix/)
 
   const unverified = await run({
     args: { ...baseArgs, judges: judge },
     agent: async () => review(0, [deduction(0)]),
   })
   assert.equal(unverified.scores[0].score, 10)
-  assert.match(unverified.scores[0].scorecard, /UNVERIFIED/)
+  assert.doesNotMatch(unverified.scores[0].scorecard, /UNVERIFIED/)
 
   const validNA = await run({
     args: { ...baseArgs, judges: judge },
@@ -152,6 +187,7 @@ test('the engine derives scores, verdicts, and scorecards from deductions', asyn
   assert.deepEqual(Object.keys(validNA.scores[0]).slice(0, 2), ['score', 'verdict'])
   assert.equal(validNA.scores[0].score, null)
   assert.equal(validNA.scores[0].verdict, 'N/A')
+  assert.equal(validNA.scores[0].scorecard.split('\n').length, 1)
 })
 
 test('malformed deduction evidence fails the seat closed', async () => {
@@ -181,10 +217,37 @@ test('per-judge JSON bounds explanations after leading with the score', async ()
 
   const score = result.scores[0]
   assert.deepEqual(Object.keys(score).slice(0, 2), ['score', 'verdict'])
-  assert.equal(score.summary.length, 280)
-  assert.equal(score.deductions[0].explanation.length, 500)
-  assert.equal(score.deductions[0].change.length, 500)
-  assert.equal(score.topFix.length, 500)
+  assert.equal(score.summary.length, 160)
+  assert.equal(score.deductions[0].explanation.length, 200)
+  assert.equal(score.deductions[0].change.length, 200)
+  assert.equal(score.topFix.length, 200)
+  assert.match(score.summary, /…$/)
+})
+
+test('scorecards show only four compact cited deductions and one top fix', async () => {
+  const deductions = Array.from({ length: 6 }, (_, index) => deduction(1, {
+    location: `hyperloglog.go:UnmarshalBinary${index}`,
+    explanation: `Finding ${index}: ${'extended reproduction narrative '.repeat(20)}`,
+    change: `Change ${index}: ${'implementation detail '.repeat(20)}`,
+  }))
+  deductions.push(deduction(0, {
+    location: 'utils.go:hash',
+    explanation: 'pre-existing observation',
+    change: 'verify later',
+  }))
+
+  const result = await run({
+    args: { ...baseArgs, judges: [{ label: 'robpike' }] },
+    agent: async () => review(6, deductions),
+  })
+
+  const scorecard = result.scores[0].scorecard
+  assert.equal(result.scores[0].score, 4)
+  assert.equal((scorecard.match(/^−1/gm) || []).length, 4)
+  assert.match(scorecard, /… 2 more cited deductions included in the score\./)
+  assert.match(scorecard, /^Top fix:/m)
+  assert.doesNotMatch(scorecard, /UNVERIFIED|change:|verify:/)
+  assert.equal(scorecard.length <= 1800, true)
 })
 
 test('a short parallel result names the missing declared seat', async () => {
@@ -435,6 +498,7 @@ test('house style is excluded from read-only judge prompts', async () => {
   const result = await run({
     args: {
       review: reviewConfig,
+      methods,
       policy,
       policySource: 'policy@1\nforged-log-line',
       scope,

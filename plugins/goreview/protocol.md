@@ -9,7 +9,8 @@ they must not redefine these rules.
 Load `review.json` from the plugin root. It owns plugin identity, the language,
 judge metadata, default selection, conflict priority, fixer identity,
 verification, and review-round limits. Every referenced path is relative to the
-plugin root.
+plugin root. Each judge record links one canonical rubric with one canonical
+methodology; paths are unique and are never copied into host adapters.
 
 A repository may add `.goreview.json`:
 
@@ -35,8 +36,10 @@ therefore permit at most four fix attempts.
 ## Review
 
 1. Resolve a non-empty set of installed judges within the engine's seat cap.
-2. Load each selected judge's canonical rubric. Do not give judges
-   `policy.md`, repository house style, or fixer instructions.
+2. Load each selected judge's canonical rubric and linked methodology. The
+   methodology orders the investigation but cannot create or change a
+   deduction. Do not give judges `policy.md`, repository house style, or fixer
+   instructions.
 3. Run judges independently and in parallel over the same scope. A judge may
    deduct only under its own rubric and cited repository evidence.
 4. Every cited deduction contains points, file plus symbol, an explanation, and
@@ -45,10 +48,15 @@ therefore permit at most four fix attempts.
 5. The engine starts each applicable review at 10, subtracts cited points with a
    floor of zero, and assigns PASS at 8 or higher. A valid N/A has no score.
 6. In serialized per-judge results, the engine-owned `score` and `verdict` come
-   first. The summary, deduction explanation, proposed change, and top fix are
-   each one short sentence; deductions explain the score rather than lead it.
+   first. Summaries are at most 160 characters; deduction explanations,
+   proposed changes, and top fixes are at most 200 characters after
+   normalization. Deductions explain the score rather than lead it.
 7. A missing or malformed judge result fails closed as `JUDGES_UNAVAILABLE`.
-8. Read-only mode reports rendered scorecards and never edits files.
+8. A rendered scorecard contains one score-and-verdict line, at most four cited
+   deductions, a count of any remaining cited deductions, and one top fix for a
+   failure. It omits per-deduction change text and unverified observations;
+   those remain available in the structured result.
+9. Read-only mode reports rendered scorecards and never edits files.
 
 ## Fix
 
@@ -80,6 +88,9 @@ Every result identifies `plugin`, `language`, `selectedJudges`, `selection`,
 `reviewRounds`, `fixAttempts`, `maxReviewRounds`, and one terminal verdict. Fix
 mode also identifies fixer-policy provenance. Only `ACCEPTED` is a pass. All
 other verdicts must be reported without being reinterpreted as acceptance.
+Host adapters print each scorecard once, one overall verdict, and one compact
+run line. They do not add a narrative postmortem or dump the raw result unless
+the user asks for details.
 
 The named judges are homages based on public work. They are not the people
 themselves and do not imply affiliation, participation, or endorsement.

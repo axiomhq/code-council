@@ -20,11 +20,13 @@ $goreview --fix [--max-rounds N] [judge...] [-- scope]
 Load optional repository configuration from `.goreview.json` exactly as
 specified by the protocol. Reject malformed configuration, unknown judges, and
 invalid round values. Read every selected canonical judge file from the path in
-`review.json`.
+`review.json`, then read that judge's linked `method` file. The rubric controls
+deductions; the method controls investigation order. Do not load unselected
+methods.
 
 For review, spawn one read-only subagent per selected judge in parallel. Give
-each the same scope plus its full canonical rubric, and no house style or fixer
-policy. Require a structured result
+each the same scope plus its full canonical rubric and linked method, and no
+house style or fixer policy. Require a structured result
 with `applicable`, `summary`, `deductions`, and `topFix`. Every deduction has
 `points`, `location`, `explanation`, `evidence`, and `change`. Calculate the
 score and render the scorecard exactly as required by `protocol.md`; never let a
@@ -40,7 +42,11 @@ count. The final allowed round never edits. Always release a lock acquired by
 this run after the writer returns; leave it in place if the writer never
 returns.
 
-Report the plugin, language, selected judges, rendered scorecards, terminal
-verdict, review rounds, fix attempts, configured maximum, and any resolved
-disagreements. In fix mode, report fixer-policy provenance separately. Never
-claim that a named judge personally participated in or endorsed the review.
+Print each rendered scorecard once, then one overall verdict and one compact
+run line with selected labels, selection provenance, review rounds, maximum,
+and fix attempts. If deliberation occurred, report only its chair and resolved
+disagreement count. If verified edits remain after a non-accepted run, say so
+in one line. In fix mode, report fixer-policy provenance in one line. Do not
+repeat findings, add a narrative postmortem, recommend next actions, or dump
+raw result JSON unless asked. Never claim that a named judge personally
+participated in or endorsed the review.
