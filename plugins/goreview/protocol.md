@@ -45,12 +45,15 @@ therefore permit at most four fix attempts.
 4. Every cited deduction contains points, file plus symbol, an explanation, and
    a concrete change. Unverified observations carry zero points and never lower
    the score.
-5. The engine starts each applicable review at 10, subtracts cited points with a
-   floor of zero, and assigns PASS at 8 or higher. A valid N/A has no score.
-6. In serialized per-judge results, the engine-owned `score` and `verdict` come
-   first. Summaries are at most 160 characters; deduction explanations,
-   proposed changes, and top fixes are at most 200 characters after
-   normalization. Deductions explain the score rather than lead it.
+5. Each applicable judge starts at 10, subtracts cited points with a floor of
+   zero, and reports that score. The engine repeats the arithmetic and rejects a
+   mismatched score as `JUDGES_UNAVAILABLE`; it assigns PASS at 8 or higher. A
+   valid N/A reports a null score.
+6. Every judge JSON object and serialized per-judge result begins with `score`,
+   followed immediately by `deductions`. The engine adds the verdict after
+   validating both. Summaries are at most 160 characters; deduction
+   explanations, proposed changes, and top fixes are at most 200 characters
+   after normalization.
 7. A missing or malformed judge result fails closed as `JUDGES_UNAVAILABLE`.
 8. A rendered scorecard contains one score-and-verdict line, at most four cited
    deductions, a count of any remaining cited deductions, and one top fix for a

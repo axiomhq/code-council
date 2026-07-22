@@ -26,12 +26,13 @@ methods.
 
 For review, spawn one read-only subagent per selected judge in parallel. Give
 each the same scope plus its full canonical rubric and linked method, and no
-house style or fixer policy. Require a structured result
-with `applicable`, `summary`, `deductions`, and `topFix`. Every deduction has
-`points`, `location`, `explanation`, `evidence`, and `change`. Calculate the
-score and render the scorecard exactly as required by `protocol.md`; never let a
-judge self-report its score or identity. Wait for every result and fail closed
-on a missing or malformed response.
+house style or fixer policy. Require a structured result whose first fields are
+`score` and `deductions`, followed by `summary` and `topFix`. Every deduction
+has `points`, `location`, `explanation`, `evidence`, and `change`. Independently
+recalculate the score from cited deductions and fail closed on a mismatch;
+derive the verdict and render the scorecard exactly as required by
+`protocol.md`. Wait for every result and fail closed on a missing or malformed
+response.
 
 Enter fix mode only when explicitly requested. Warn before editing, acquire the
 protocol's repository lock, and use one writer. Load `../../policy.md` only for

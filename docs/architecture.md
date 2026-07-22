@@ -49,13 +49,14 @@ review.json + repository config + command arguments
                    terminal verdict
 ```
 
-A judge never reports its own identity, score, verdict, or rendered scorecard.
-It receives only the review scope, its canonical rubric, and its linked
-methodology—not shared house style or fixer policy. The method determines how
-the judge investigates; only the rubric can authorize deductions. For an
-applicable review, the engine starts at 10 and subtracts only deductions whose
-`evidence` is `cited`. Unverified observations have zero points. The score has
-a floor of zero; 8 or higher passes.
+A judge reports its score first, followed by the deductions that explain it. It
+never reports its identity, verdict, or rendered scorecard. The engine repeats
+the deduction arithmetic and rejects a mismatched score before deriving the
+verdict. A judge receives only the review scope, its canonical rubric, and its
+linked methodology—not shared house style or fixer policy. The method
+determines how the judge investigates; only the rubric can authorize
+deductions. Unverified observations have zero points. Scores have a floor of
+zero; 8 or higher passes.
 
 ## Fix data flow
 

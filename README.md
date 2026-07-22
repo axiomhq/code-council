@@ -50,26 +50,23 @@ Invoke `/goreview` in Claude Code or `$goreview` in Codex.
 Everything after the literal `--` is review scope. Without a scope, GoLegends
 reviews the current staged and unstaged working-tree change.
 
-## Scorecards explain the failure
+## Scores first, deductions second
 
-Judges return structured evidence, not self-reported scores. The engine renders
-one scorecard from those deductions:
+Each judge reports its score first, followed by the cited deductions that
+explain it. The engine verifies the arithmetic and renders one compact
+scorecard:
 
 ```text
-ROB PIKE — Simplicity: 7/10
-Deductions:
-  −2  sparse.go:set.ForEach — the wrapper creates two ways to iterate one set;
-      change: embed the underlying set and delete the forwarding method  [cited]
-  −1  sparse.go:set.add — Has followed by Add performs two lookups;
-      change: return Add directly  [cited]
-Verdict: FAIL
-If FAIL: collapse the wrapper and use the underlying set API directly
+ROB PIKE — Simplicity: 7/10 — FAIL
+−2  sparse.go:set.ForEach — the wrapper creates two ways to iterate one set
+−1  sparse.go:set.add — Has followed by Add performs two lookups
+Top fix: collapse the wrapper and use the underlying set API directly
 ```
 
-Every applicable judge starts at 10. Only cited deductions lower the score; the
-engine—not the judge—calculates the score and PASS/FAIL verdict. A score of 8 or
-higher passes. Unverified observations remain visible but carry zero points and
-cannot drive an automatic fix.
+Every applicable judge starts at 10. Only cited deductions lower the score. The
+engine rejects any score that does not match those deductions, then derives the
+PASS/FAIL verdict. A score of 8 or higher passes. Unverified observations carry
+zero points and cannot drive an automatic fix.
 
 See [the complete example](docs/example-scorecard.md).
 

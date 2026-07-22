@@ -1,6 +1,6 @@
 export const meta = {
   name: 'goreview',
-  description: 'The GoLegends engine behind /goreview. It validates review.json, runs independent named Go judges, computes scores from cited deductions, and renders scorecards. Read-only is the default. apply:true requires a caller-held repository lock and 2-10 configured review rounds; the final round never edits. Before a fix, every selected judge deliberates and a selected chair produces the coherent plan handed to the one awaited fixer. Every result carries a fail-closed terminal verdict.',
+  description: 'The GoLegends engine behind /goreview. It validates review.json, runs independent named Go judges, verifies their scores against cited deductions, and renders scorecards. Read-only is the default. apply:true requires a caller-held repository lock and 2-10 configured review rounds; the final round never edits. Before a fix, every selected judge deliberates and a selected chair produces the coherent plan handed to the one awaited fixer. Every result carries a fail-closed terminal verdict.',
   phases: [
     { title: 'Select', detail: 'pick the 3 judges that fit the project (only when none are passed)' },
     { title: 'Review', detail: 'independent judges score the diff in parallel' },
@@ -108,14 +108,13 @@ const withDeadline = async (work, ms) => {
 const REVIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['applicable', 'summary', 'deductions', 'topFix'],
+  required: ['score', 'deductions', 'summary', 'topFix'],
   properties: {
-    applicable: { type: 'boolean' },
-    summary: {
-      type: 'string',
-      minLength: 1,
-      maxLength: MAX_RAW_FIELD_CHARS,
-      description: 'One short sentence, preferably under 160 characters, explaining the result under this judge\'s lens.',
+    score: {
+      type: ['integer', 'null'],
+      minimum: 0,
+      maximum: 10,
+      description: 'First field. Start at 10 and subtract cited deductions with a floor of zero; use null only for N/A.',
     },
     deductions: {
       type: 'array',
@@ -142,6 +141,12 @@ const REVIEW_SCHEMA = {
           },
         },
       },
+    },
+    summary: {
+      type: 'string',
+      minLength: 1,
+      maxLength: MAX_RAW_FIELD_CHARS,
+      description: 'One short sentence, preferably under 160 characters, explaining the result under this judge\'s lens.',
     },
     topFix: { type: 'string', maxLength: MAX_RAW_FIELD_CHARS },
   },
@@ -501,21 +506,23 @@ const normalizeReview = (judge, raw) => {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.deductions)) {
     return { error: 'invalid structured judge response' }
   }
-  if (raw.applicable === false) {
+  if (raw.score === null) {
     if (raw.deductions.length || String(raw.topFix || '').trim()) {
       return { error: 'N/A response carried deductions or a top fix' }
     }
     const review = {
       score: null,
+      deductions: [],
       verdict: 'N/A',
       summary: compactLine(raw.summary, MAX_SUMMARY_CHARS),
-      deductions: [],
       topFix: '',
     }
     review.scorecard = renderScorecard(judge, review)
     return { review }
   }
-  if (raw.applicable !== true) return { error: 'judge did not declare applicability' }
+  if (!Number.isInteger(raw.score) || raw.score < 0 || raw.score > 10) {
+    return { error: 'judge did not report a valid score first' }
+  }
 
   const deductions = raw.deductions.map(deduction => ({
     points: deduction.points,
@@ -535,15 +542,19 @@ const normalizeReview = (judge, raw) => {
   const points = deductions
     .filter(deduction => deduction.evidence === 'cited')
     .reduce((total, deduction) => total + deduction.points, 0)
-  const score = Math.max(0, 10 - points)
+  const expectedScore = Math.max(0, 10 - points)
+  if (raw.score !== expectedScore) {
+    return { error: `judge reported score ${raw.score}, but cited deductions require ${expectedScore}` }
+  }
+  const score = raw.score
   const verdict = score >= 8 ? 'PASS' : 'FAIL'
   const topFix = compactLine(raw.topFix, MAX_TOP_FIX_CHARS)
   if (verdict === 'FAIL' && !topFix) return { error: 'failing review omitted topFix' }
   const review = {
     score,
+    deductions,
     verdict,
     summary: compactLine(raw.summary, MAX_SUMMARY_CHARS),
-    deductions,
     topFix,
   }
   review.scorecard = renderScorecard(judge, review)
@@ -576,8 +587,9 @@ for (let round = 1; round <= MAX_REVIEW_ROUNDS; round++) {
         `Return at most 6 distinct deductions, highest impact first. Keep the summary under 160 characters and each ` +
         `location, explanation, proposed change, and top fix under 200 characters. State one fact per deduction. ` +
         `Do not include reproduction narration, command output, history, or extended rationale. ` +
-        `Cite file + symbol for every score-affecting deduction. Do not calculate a score, verdict, or scorecard; ` +
-        `the GoLegends engine derives them from your structured deductions.`,
+        `Start at 10, subtract cited deductions with a floor of zero, and return that score as the FIRST JSON field, ` +
+        `followed by deductions. Cite file + symbol for every score-affecting deduction. Do not report a verdict or ` +
+        `scorecard; the GoLegends engine verifies your score and derives the verdict.`,
         { agentType: j.type, label: `judge:${j.label}`, phase: 'Review', schema: REVIEW_SCHEMA, ...(request.model ? { model: request.model } : {}) }
       ), SEAT_DEADLINE_MS)
       if (rawReview === OVERDUE) {

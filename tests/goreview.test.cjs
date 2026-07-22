@@ -30,17 +30,21 @@ const deduction = (points, overrides = {}) => ({
   ...overrides,
 })
 
+const scoreFor = deductions => Math.max(0, 10 - deductions
+  .filter(item => item.evidence === 'cited')
+  .reduce((total, item) => total + item.points, 0))
+
 const review = (points = 0, deductions = points ? [deduction(points)] : []) => ({
-  applicable: true,
-  summary: points ? 'the change has a cited problem' : 'the change is sound under this lens',
+  score: scoreFor(deductions),
   deductions,
+  summary: points ? 'the change has a cited problem' : 'the change is sound under this lens',
   topFix: points > 2 ? 'apply the cited fix' : '',
 })
 
 const notApplicable = () => ({
-  applicable: false,
-  summary: 'the change does not touch this surface',
+  score: null,
   deductions: [],
+  summary: 'the change does not touch this surface',
   topFix: '',
 })
 
@@ -82,6 +86,8 @@ test('read-only mode uses the default judges in configured order', async () => {
   const result = await run({
     args: baseArgs,
     agent: async (_prompt, options) => {
+      assert.deepEqual(options.schema.required.slice(0, 2), ['score', 'deductions'])
+      assert.deepEqual(Object.keys(options.schema.properties).slice(0, 2), ['score', 'deductions'])
       calls.push({ label: options.label, agentType: options.agentType })
       return review()
     },
@@ -148,7 +154,7 @@ test('each review seat receives only its selected methodology', async () => {
   assert.doesNotMatch(prompts.get('judge:bradfitz'), /# Rob Pike method/)
 })
 
-test('the engine derives scores, verdicts, and scorecards from deductions', async () => {
+test('the engine verifies scores and derives verdicts and scorecards from deductions', async () => {
   const judge = [{ label: 'robpike' }]
 
   const pass = await run({
@@ -156,7 +162,7 @@ test('the engine derives scores, verdicts, and scorecards from deductions', asyn
     agent: async () => review(2),
   })
   assert.equal(pass.verdict, 'ACCEPTED')
-  assert.deepEqual(Object.keys(pass.scores[0]).slice(0, 2), ['score', 'verdict'])
+  assert.deepEqual(Object.keys(pass.scores[0]).slice(0, 2), ['score', 'deductions'])
   assert.equal(pass.scores[0].score, 8)
   assert.equal(pass.scores[0].verdict, 'PASS')
   assert.match(pass.scores[0].scorecard, /ROB PIKE — Simplicity: 8\/10 — PASS/)
@@ -184,7 +190,7 @@ test('the engine derives scores, verdicts, and scorecards from deductions', asyn
     agent: async () => notApplicable(),
   })
   assert.equal(validNA.verdict, 'ACCEPTED')
-  assert.deepEqual(Object.keys(validNA.scores[0]).slice(0, 2), ['score', 'verdict'])
+  assert.deepEqual(Object.keys(validNA.scores[0]).slice(0, 2), ['score', 'deductions'])
   assert.equal(validNA.scores[0].score, null)
   assert.equal(validNA.scores[0].verdict, 'N/A')
   assert.equal(validNA.scores[0].scorecard.split('\n').length, 1)
@@ -201,22 +207,33 @@ test('malformed deduction evidence fails the seat closed', async () => {
   assert.match(result.seatErrors[0].error, /inconsistent/)
 })
 
+test('a judge score that disagrees with cited deductions fails closed', async () => {
+  const result = await run({
+    args: { ...baseArgs, judges: [{ label: 'robpike' }] },
+    agent: async () => ({ ...review(3), score: 10 }),
+  })
+
+  assert.equal(result.verdict, 'JUDGES_UNAVAILABLE')
+  assert.deepEqual(result.missingJudges, ['robpike'])
+  assert.match(result.seatErrors[0].error, /reported score 10.*require 7/i)
+})
+
 test('per-judge JSON bounds explanations after leading with the score', async () => {
   const result = await run({
     args: { ...baseArgs, judges: [{ label: 'robpike' }] },
     agent: async () => ({
-      applicable: true,
-      summary: 's'.repeat(1000),
+      score: 7,
       deductions: [deduction(3, {
         explanation: 'e'.repeat(1000),
         change: 'c'.repeat(1000),
       })],
+      summary: 's'.repeat(1000),
       topFix: 'f'.repeat(1000),
     }),
   })
 
   const score = result.scores[0]
-  assert.deepEqual(Object.keys(score).slice(0, 2), ['score', 'verdict'])
+  assert.deepEqual(Object.keys(score).slice(0, 2), ['score', 'deductions'])
   assert.equal(score.summary.length, 160)
   assert.equal(score.deductions[0].explanation.length, 200)
   assert.equal(score.deductions[0].change.length, 200)
