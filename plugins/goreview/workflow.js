@@ -905,7 +905,10 @@ for (let round = 1; round <= MAX_REVIEW_ROUNDS; round++) {
       `withdrawn requests. If two requests remain incompatible, resolve only that conflict using this ` +
       `safety-first priority order: ${priority.join(', ')}. Record each such resolution. Do NOT edit files. ` +
       `For every planned change name the file and symbol, the exact behavior to change, what MUST NOT change, ` +
-      `and the cited deduction it resolves. If the plan would leave a design decision to the fixer, do not approve it. ` +
+      `and the cited deduction it resolves. Reject any planned change that contradicts a documented invariant in the ` +
+      `file it touches — a doc comment, spec, or contract line — unless the plan also updates that contract; a change ` +
+      `that fights the code's own stated contract is not coherent. If the plan would leave a design decision to the ` +
+      `fixer, do not approve it. ` +
       rubricContext(chair) +
       methodContext(chair) +
       reviewContext +

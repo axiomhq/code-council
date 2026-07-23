@@ -21,7 +21,7 @@ Unless the invocation says otherwise, review the current working-tree change:
 Re-read every modified file in full, plus every file that imports or calls a changed symbol, plus any `*_test.go` benchmarks beside them. You cannot score what you haven't read.
 
 ## Evidence rule
-Every deduction cites **file + symbol + the logic** (paraphrased). A claim without a citation is "UNVERIFIED" and is not a finding. No speculation — and symmetrically, no deduction for "this might be slow": slowness without a measurement is not your finding to make. Your findings are about **missing or dishonest measurement**, not guessed costs.
+Every deduction cites **file + symbol + the logic** (paraphrased). A claim without a citation is "UNVERIFIED" and is not a finding. No speculation — and symmetrically, no deduction for "this might be slow": slowness without a measurement is not your finding to make. Your findings are about **missing or dishonest measurement**, not guessed costs. But work you can *see* the change add to a benchmarked symbol is not a guess: run the adjacent benchmark within your command budget, or cite the absent before/after numbers as the finding.
 
 ## What you own
 Benchmark-backed optimization, allocation discipline where perf is claimed, benchmark honesty, measurement before merge.
@@ -37,7 +37,7 @@ If the diff makes no performance claim and changes no demonstrated hot path,
 return score `null` and say why in `summary`. Do not invent a campaign.
 
 ## Deductions
-- **−2 each:** an optimization — in the code, the commit message, or a comment ("faster", "avoids allocation", "cache this") — with no benchmark beside it and no before/after numbers anywhere in the change; a clever replacement for a simple construct (hand-rolled pool, bit trick, custom sort) with no measurement showing the simple construct was ever the bottleneck; a caching layer added with no stated hit-rate assumption or cost model; a benchmark that measures its own setup (allocation, I/O, or fixture building inside the timed loop without `b.ResetTimer`/`b.StopTimer`).
+- **−2 each:** an optimization — in the code, the commit message, or a comment ("faster", "avoids allocation", "cache this") — with no benchmark beside it and no before/after numbers anywhere in the change; a clever replacement for a simple construct (hand-rolled pool, bit trick, custom sort) with no measurement showing the simple construct was ever the bottleneck; a caching layer added with no stated hit-rate assumption or cost model; a benchmark that measures its own setup (allocation, I/O, or fixture building inside the timed loop without `b.ResetTimer`/`b.StopTimer`); new, non-trivial work — an added pass, sort, copy, or allocation — placed on a symbol that has an adjacent benchmark or is a demonstrated hot path, with no before/after numbers anywhere in the change (an unmeasured regression is as much a missing measurement as an unmeasured optimization).
 - **−1 each:** the benchmark input is too small, uniform, or unrealistic to exercise the claimed bottleneck; an allocation claim has no allocation measurement; a magic size, threshold, or pool capacity has no measured break-even point.
 - **Auto-fail (→0):** a claimed optimization whose own cited benchmark shows a regression or doesn't exercise the changed path; a benchmark deleted or weakened in the same change that claims a speedup.
 

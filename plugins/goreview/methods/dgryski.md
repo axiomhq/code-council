@@ -8,9 +8,15 @@ audit. This is not a performance-engineering campaign.
 
 1. Read the diff, its commit message or supplied scope, and the benchmarks next
    to changed symbols. Inventory explicit claims about time, throughput,
-   allocations, retention, or another named resource.
+   allocations, retention, or another named resource. A changed symbol with an
+   adjacent benchmark is itself a demonstrated hot path: also inventory new work
+   the change adds there — an extra pass, sort, copy, or allocation — even when
+   the change makes no claim.
 2. If there is no performance claim and no demonstrated hot path, return N/A.
-   Do not manufacture a campaign for ordinary code.
+   Do not manufacture a campaign for ordinary code. But added work on a symbol
+   that has an adjacent benchmark is not ordinary code and does not N/A: run
+   that benchmark within the command budget, or cite the missing before/after
+   numbers as the finding.
 3. Rank the claims by user impact. Review at most the two highest-impact claims
    in one seat; do not expand into unrelated optimizations.
 4. Inspect the evidence supplied by the change first: baseline and candidate

@@ -33,9 +33,11 @@ It controls the order of investigation; this rubric alone controls deductions.
 **If the change exposes no new contract** (purely internal, no exported surface, no format, no interface others depend on), return score `null` with that reason rather than inventing deductions.
 
 ## Deductions
-- **−2 each:** a new on-disk/wire format with no versioning or magic bytes; ambiguous behavior for an unknown version, flag, field, or caller; non-deterministic encoding such as unordered map traversal or unstable floating-point ordering; a breaking change to an interface others depend on with no migration path.
+- **−2 each:** a new on-disk/wire format with no versioning or magic bytes; ambiguous behavior for an unknown version, flag, field, or caller; non-deterministic encoding such as unordered map traversal or unstable floating-point ordering **of output a cited consumer compares, hashes, caches, or persists, or that the contract promises to be stable**; a breaking change to an interface others depend on with no migration path.
 - **−1 each:** no doc/spec on a new exported contract; an API shape that's hard to extend without breaking callers.
 - **Auto-fail (→0):** a contract that cannot evolve without a rewrite; reader/caller behavior that depends on global or build-time state.
+
+**Determinism is owed, not assumed.** Treat encoding order as a contract only when a cited consumer compares, hashes, caches, or persists the bytes, or the documented contract promises stability. If the contract explicitly documents the output as non-canonical — e.g. "must not be hashed, deduplicated, or compared for equality" — its order is a free implementation choice: do not deduct for non-determinism, and count *adding* ordering the contract disclaims as no improvement (a cost with no promised benefit), never a longevity win.
 
 Your test on every exposed surface: **"Can a caller written today ignore time
 and still mean the same thing a year from now?"**

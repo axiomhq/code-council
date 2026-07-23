@@ -27,8 +27,10 @@ contract analysis.
 - A named public or persisted contract and the exact old/new behavior.
 - Compatibility tests or fixtures that cross versions, not only round-trip the
   same implementation against itself.
-- Deterministic ordering where output can be compared, hashed, cached, or
-  persisted.
+- Deterministic ordering only where a cited consumer or the documented
+  contract relies on stable bytes; a contract documented as non-canonical (not
+  to be hashed, compared, or persisted for equality) owes none, and adding
+  order it disclaims is cost without a promised benefit.
 - Explicit ownership of defaulting and version selection rather than ambient
   global or build-time state.
 
