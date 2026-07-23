@@ -20,24 +20,29 @@ The plugin owns:
   scoring and planning; judges never receive it.
 - `judges/<label>.md`: one named judge's scope, evidence rule, deductions, and
   voice.
+- `judges/guest.md`: one generic read-only seat for approved repository-pinned
+  judges.
 - `methods/<label>.md`: that judge's applicability check, investigation
   sequence, evidence bar, and stop condition.
+- `scripts/github_judge.py`: bounded GitHub public-metadata discovery and
+  deterministic validation of repository-pinned judge files.
 - `workflow.js`: Claude Workflow execution, validation, arithmetic, and
   scorecard rendering.
 - `commands/goreview.md`: the primary Claude Code adapter.
+- `commands/add.md`: explicit guest discovery, draft approval, and pinning.
 - `skills/goreview/SKILL.md`: the Codex adapter to the same protocol and
   canonical sources.
 
 ## Review data flow
 
 ```text
-review.json + repository config + command arguments
+review.json + repository config + approved pinned guests + command arguments
                          │
                          ▼
                    selected judges
                          │
                          ▼
-          linked rubric + selected method only
+       linked/approved rubric + selected method only
                          │
                          ▼
            independent structured deductions
@@ -52,11 +57,16 @@ review.json + repository config + command arguments
 A judge reports its score first, followed by the deductions that explain it. It
 never reports its identity, verdict, or rendered scorecard. The engine repeats
 the deduction arithmetic and rejects a mismatched score before deriving the
-verdict. A judge receives only the review scope, its canonical rubric, and its
-linked methodology—not shared house style or fixer policy. The method
-determines how the judge investigates; only the rubric can authorize
-deductions. Unverified observations have zero points. Scores have a floor of
-zero; 8 or higher passes.
+verdict. A judge receives only the review scope, its canonical or approved
+pinned rubric, and its linked methodology—not shared house style or fixer
+policy. The method determines how the judge investigates; only the rubric can
+authorize deductions. Unverified observations have zero points. Scores have a
+floor of zero; 8 or higher passes.
+
+Guest discovery is separate from review. An explicit `@handle` fetches bounded
+public metadata, produces a draft for human approval, and pins the source URLs,
+repository revisions, and retrieval time beside the approved rubric. Review
+never performs a network lookup, refreshes a guest, or auto-selects one.
 
 ## Fix data flow
 
@@ -83,6 +93,7 @@ write-capable agent.
 
 ## Shared sources
 
-Claude's manifest references the canonical judge and fixer files directly. The
-Claude command and Codex skill resolve methods through `review.json`, so host
-adapters never copy rubrics or methodologies.
+Claude's manifest references the canonical judges, generic guest, and fixer
+files directly. The Claude command and Codex skill resolve installed methods
+through `review.json` and repository-pinned guests through their validated
+directory, so host adapters never copy rubrics or methodologies.

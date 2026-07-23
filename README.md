@@ -43,6 +43,8 @@ Invoke `/goreview` in Claude Code or `$goreview` in Codex.
 /goreview robpike rsc
 /goreview filosottile -- pkg/auth
 /goreview robpike -- pr 123
+/goreview:add @davecheney
+/goreview @davecheney -- pkg/cache
 /goreview --fix
 /goreview --fix --max-rounds 3 robpike rsc
 ```
@@ -88,13 +90,33 @@ The defaults are `rsc`, `bradfitz`, and `robpike`.
 | `filosottile` |  | Security posture |
 | `rakyll` |  | Profiling and diagnosability |
 
+### Repository-pinned judges
+
+An unknown name never triggers a search during review. Discovery is explicit:
+
+```text
+/goreview:add @github-handle
+```
+
+GoLegends reads bounded public GitHub profile metadata and the six most
+recently pushed owner repositories, pins each repository source to its current
+default-branch revision, and drafts one narrow Go review lens. It does not read
+README files, source files, commit messages, or linked websites.
+
+You see the proposed sources, deductions, and review sequence before anything
+is written. After approval, the judge is stored in
+`.goreview/judges/<handle>/` and invoked as `@handle`. Pinned judges are
+repository-local, validated before use, and never automatically selected or
+silently refreshed. They use a generic read-only guest seat; the approved files
+provide the complete rubric and method.
+
 ## Repository configuration
 
 Add `.goreview.json` at the reviewed repository root:
 
 ```json
 {
-  "judges": ["robpike", "filosottile", "dgryski"],
+  "judges": ["robpike", "filosottile", "@davecheney"],
   "maxReviewRounds": 3
 }
 ```
@@ -145,7 +167,10 @@ The plugin has one canonical source for every review concept:
 | [`methods/`](plugins/goreview/methods/) | One linked investigation method per named judge |
 | [`workflow.js`](plugins/goreview/workflow.js) | Deduction engine and scorecard renderer |
 | [`fixer.md`](plugins/goreview/fixer.md) | The only write-capable agent |
+| [`judges/guest.md`](plugins/goreview/judges/guest.md) | Generic read-only seat for approved repository-pinned judges |
+| [`scripts/github_judge.py`](plugins/goreview/scripts/github_judge.py) | Bounded public discovery and pinned-judge validation |
 | [`commands/goreview.md`](plugins/goreview/commands/goreview.md) | Thin Claude adapter |
+| [`commands/add.md`](plugins/goreview/commands/add.md) | Explicit GitHub discovery and approval flow |
 | [`skills/goreview/`](plugins/goreview/skills/goreview/) | Thin Codex adapter |
 
 Claude's manifest links directly to the canonical judge files. Codex's skill
@@ -157,7 +182,7 @@ is loaded only in fix mode and supplied only to the fixer.
 
 See [the architecture](docs/architecture.md) for ownership and data flow.
 
-## Add a judge
+## Add a built-in judge
 
 1. Add one rubric under `plugins/goreview/judges/<label>.md`.
 2. Add one investigation method under `plugins/goreview/methods/<label>.md`.

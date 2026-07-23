@@ -20,6 +20,50 @@ const methods = Object.fromEntries(reviewConfig.judges.map(judge => [
 ]))
 const baseArgs = { review: reviewConfig, methods }
 const fixArgs = { ...baseArgs, policy: 'house style', policySource: 'policy.md@1' }
+const guestJudge = handle => ({
+  label: `gh-${handle}`,
+  github: handle,
+  displayName: handle === 'octogo' ? 'Octo Go' : 'Gopher Dev',
+  lens: handle === 'octogo' ? 'Bounded network inputs' : 'Explicit concurrency ownership',
+  rubric: [
+    `# ${handle}-inspired lens`,
+    '## Voice',
+    `Use the ${handle} evidence marker.`,
+    '## Scope',
+    'Review one narrow Go concern.',
+    '## Evidence rule',
+    'Cite repository code.',
+    '## Deductions',
+    '- **−2:** the narrow invariant is violated.',
+    '## Structured response',
+    'Lead with score.',
+  ].join('\n'),
+  method: [
+    `# ${handle} method`,
+    '## Review sequence',
+    `1. Follow the ${handle} sequence marker.`,
+    '## Evidence to seek',
+    '- Concrete code evidence.',
+    '## Stop condition',
+    'Stop when the invariant is proven.',
+  ].join('\n'),
+  retrievedAt: '2026-07-23T10:00:00Z',
+  sources: [
+    { kind: 'profile', url: `https://github.com/${handle}` },
+    {
+      kind: 'repository',
+      url: `https://github.com/${handle}/one`,
+      revision: '1111111111111111111111111111111111111111',
+      pushedAt: '2026-07-22T10:00:00Z',
+    },
+    {
+      kind: 'repository',
+      url: `https://github.com/${handle}/two`,
+      revision: '2222222222222222222222222222222222222222',
+      pushedAt: '2026-07-21T10:00:00Z',
+    },
+  ],
+})
 
 const deduction = (points, overrides = {}) => ({
   points,
@@ -152,6 +196,61 @@ test('each review seat receives only its selected methodology', async () => {
   assert.doesNotMatch(prompts.get('judge:robpike'), /# Brad Fitzpatrick method/)
   assert.match(prompts.get('judge:bradfitz'), /# Brad Fitzpatrick method/)
   assert.doesNotMatch(prompts.get('judge:bradfitz'), /# Rob Pike method/)
+})
+
+test('approved GitHub guests share one read-only agent without collapsing identities', async () => {
+  const guests = [guestJudge('octogo'), guestJudge('gopherdev')]
+  const calls = []
+  const result = await run({
+    args: {
+      ...baseArgs,
+      guestJudges: guests,
+      judges: guests.map(({ label }) => ({ label })),
+    },
+    agent: async (prompt, options) => {
+      calls.push({ prompt, label: options.label, agentType: options.agentType })
+      return review()
+    },
+  })
+
+  assert.equal(result.verdict, 'ACCEPTED')
+  assert.deepEqual(result.selectedJudges, ['gh-octogo', 'gh-gopherdev'])
+  assert.deepEqual(calls.map(call => call.agentType), ['goreview:guest', 'goreview:guest'])
+  assert.deepEqual(calls.map(call => call.label), ['judge:gh-octogo', 'judge:gh-gopherdev'])
+  assert.match(calls[0].prompt, /octogo evidence marker/)
+  assert.match(calls[0].prompt, /octogo sequence marker/)
+  assert.doesNotMatch(calls[0].prompt, /gopherdev evidence marker/)
+  assert.equal(result.guestJudges.length, 2)
+  assert.equal(result.guestJudges[0].sources[1].revision, '1111111111111111111111111111111111111111')
+  assert.match(result.scores[0].scorecard, /OCTO GO — Bounded network inputs: 10\/10 — PASS/)
+})
+
+test('unknown explicit judges and malformed guests fail before spawning agents', async () => {
+  let calls = 0
+  const agent = async () => { calls++; return review() }
+
+  const unknown = await run({
+    args: { ...baseArgs, judges: [{ label: 'unknown-person' }, { label: 'robpike' }] },
+    agent,
+  })
+  assert.equal(unknown.verdict, 'INVALID_REQUEST')
+  assert.equal(unknown.reason, 'UNKNOWN_JUDGES')
+  assert.deepEqual(unknown.unmatched, ['unknown-person'])
+
+  const malformedGuest = guestJudge('octogo')
+  malformedGuest.sources = malformedGuest.sources.slice(0, 2)
+  const invalidGuest = await run({
+    args: {
+      ...baseArgs,
+      guestJudges: [malformedGuest],
+      judges: [{ label: malformedGuest.label }],
+    },
+    agent,
+  })
+  assert.equal(invalidGuest.verdict, 'INVALID_REQUEST')
+  assert.equal(invalidGuest.reason, 'GUEST_JUDGES_INVALID')
+  assert.match(invalidGuest.guestErrors.join(' '), /invalid pinned sources/)
+  assert.equal(calls, 0)
 })
 
 test('the engine verifies scores and derives verdicts and scorecards from deductions', async () => {

@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict')
+const childProcess = require('node:child_process')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const test = require('node:test')
 
@@ -30,8 +32,9 @@ test('Claude and Codex identities agree on GoLegends', () => {
 
   assert.equal(claudePlugin.name, 'goreview')
   assert.equal(codexPlugin.name, claudePlugin.name)
-  assert.equal(codexPlugin.version, claudePlugin.version)
-  assert.equal(claudePlugin.version, '0.1.3')
+  assert.equal(claudePlugin.version, '0.1.4')
+  assert.equal(codexPlugin.version.split('+', 1)[0], claudePlugin.version)
+  assert.match(codexPlugin.version, /^0\.1\.4\+codex\.\d{14}$/)
   assert.equal(claudePlugin.license, 'MIT')
   assert.equal(claudePlugin.author.name, 'Seif Lotfy')
   assert.match(claudePlugin.description, /named Go engineering perspectives/i)
@@ -90,8 +93,8 @@ test('review.json is the canonical Go roster and round configuration', () => {
 
   assert.deepEqual(
     [...claudePlugin.agents].sort(),
-    [...paths, './fixer.md'].sort(),
-    'Claude must expose exactly the canonical judges and fixer',
+    [...paths, './judges/guest.md', './fixer.md'].sort(),
+    'Claude must expose exactly the canonical judges, generic guest, and fixer',
   )
 })
 
@@ -117,6 +120,13 @@ test('judges are read-only and the fixer is the only writing agent', () => {
   const fixer = readPlugin('fixer.md')
   assert.match(frontmatter(fixer), /^name:\s*fixer$/m)
   assert.match(frontmatter(fixer), /^tools: Read, Grep, Glob, Edit, Write, Bash$/m)
+
+  const guest = readPlugin('judges/guest.md')
+  assert.match(frontmatter(guest), /^name:\s*guest$/m)
+  assert.match(frontmatter(guest), /^tools: Read, Grep, Glob, Bash$/m)
+  assert.doesNotMatch(frontmatter(guest), /\b(?:Edit|Write)\b/)
+  assert.match(guest, /never infer a person's views from their name/i)
+  assert.match(guest, /`score` first/)
 })
 
 test('the original three judges retain their distinct hard checks', () => {
@@ -169,6 +179,7 @@ test('the fixer executes a complete plan without making design decisions', () =>
 
 test('host adapters share one protocol and one review configuration', () => {
   const command = readPlugin('commands/goreview.md')
+  const addCommand = readPlugin('commands/add.md')
   const skill = readPlugin('skills/goreview/SKILL.md')
   const workflow = readPlugin('workflow.js')
 
@@ -182,11 +193,88 @@ test('host adapters share one protocol and one review configuration', () => {
   }
 
   assert.match(command, /workflow\.js/)
+  assert.match(command, /github_judge\.py.*validate/s)
+  assert.match(command, /never fetch GitHub during review/i)
+  assert.match(addCommand, /github_judge\.py.*fetch/s)
+  assert.match(addCommand, /explicit approval/i)
+  assert.match(addCommand, /untrusted data/i)
+  assert.match(skill, /github_judge\.py fetch/)
+  assert.match(skill, /Never fetch a\s+profile during review/i)
   assert.match(command, /--max-rounds/)
   assert.match(workflow, /defaultMaxReviewRounds/)
   assert.match(workflow, /maxAllowedReviewRounds/)
   assert.doesNotMatch(command, /const\s+(?:JUDGES|ROSTER|DEFAULT_BENCH)\s*=/)
   assert.doesNotMatch(skill, /const\s+(?:JUDGES|ROSTER|DEFAULT_BENCH)\s*=/)
+})
+
+test('GitHub judge discovery is bounded and pinned before approval', () => {
+  const script = path.join(pluginRoot, 'scripts', 'github_judge.py')
+  const fixture = path.join(root, 'tests', 'fixtures', 'github-judge.json')
+  const fetched = childProcess.spawnSync(
+    'python3',
+    [script, 'fetch', '@octogo', '--fixture', fixture],
+    { encoding: 'utf8' },
+  )
+
+  assert.equal(fetched.status, 0, fetched.stderr)
+  const snapshot = JSON.parse(fetched.stdout)
+  assert.equal(snapshot.profile.login, 'octogo')
+  assert.deepEqual(snapshot.repositories.map(repo => repo.fullName), [
+    'octogo/packet',
+    'octogo/queue',
+  ])
+  assert.equal(snapshot.repositories.every(repo => /^[0-9a-f]{40}$/.test(repo.revision)), true)
+  assert.equal(snapshot.sources.length, 3)
+  assert.match(snapshot.notice, /untrusted public data/i)
+  assert.equal(Object.hasOwn(snapshot.repositories[0], 'readme'), false)
+
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'goreview-guest-'))
+  const directory = path.join(temporaryRoot, 'octogo')
+  fs.mkdirSync(directory)
+  fs.writeFileSync(path.join(directory, 'profile.json'), JSON.stringify({
+    schemaVersion: 1,
+    label: 'gh-octogo',
+    github: 'octogo',
+    displayName: 'Octo Go',
+    lens: 'Bounded network inputs',
+    retrievedAt: snapshot.retrievedAt,
+    sources: snapshot.sources,
+  }, null, 2))
+  fs.writeFileSync(path.join(directory, 'judge.md'), [
+    '# Octo Go-inspired lens',
+    '## Voice',
+    'Stay concrete.',
+    '## Scope',
+    'Review bounded network inputs.',
+    '## Evidence rule',
+    'Cite code.',
+    '## Deductions',
+    '- **−2:** unbounded input.',
+    '## Structured response',
+    'Lead with score.',
+  ].join('\n'))
+  fs.writeFileSync(path.join(directory, 'method.md'), [
+    '# Octo Go method',
+    '## Review sequence',
+    '1. Trace one input.',
+    '## Evidence to seek',
+    '- A concrete bound.',
+    '## Stop condition',
+    'Stop when the bound is proven.',
+  ].join('\n'))
+
+  const validated = childProcess.spawnSync(
+    'python3',
+    [script, 'validate', directory],
+    { encoding: 'utf8' },
+  )
+  assert.equal(validated.status, 0, validated.stderr)
+  const guest = JSON.parse(validated.stdout)
+  assert.equal(guest.label, 'gh-octogo')
+  assert.equal(guest.github, 'octogo')
+  assert.match(guest.rubric, /^# Octo Go-inspired lens/)
+  assert.match(guest.method, /^# Octo Go method/)
+  fs.rmSync(temporaryRoot, { recursive: true, force: true })
 })
 
 test('Codex skill metadata is complete', () => {

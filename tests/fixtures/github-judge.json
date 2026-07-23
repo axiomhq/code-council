@@ -1,0 +1,62 @@
+{
+  "profile": {
+    "login": "octogo",
+    "name": "Octo Go",
+    "bio": "Maintains small Go networking tools.",
+    "company": "",
+    "location": "",
+    "blog": "https://example.invalid",
+    "followers": 42,
+    "public_repos": 9,
+    "updated_at": "2026-07-20T10:00:00Z"
+  },
+  "repos": [
+    {
+      "full_name": "octogo/packet",
+      "html_url": "https://github.com/octogo/packet",
+      "description": "A bounded Go packet reader.",
+      "language": "Go",
+      "topics": ["go", "networking"],
+      "stargazers_count": 8,
+      "forks_count": 1,
+      "pushed_at": "2026-07-22T10:00:00Z",
+      "default_branch": "main",
+      "fork": false,
+      "archived": false,
+      "disabled": false
+    },
+    {
+      "full_name": "octogo/queue",
+      "html_url": "https://github.com/octogo/queue",
+      "description": "A small Go work queue.",
+      "language": "Go",
+      "topics": ["go", "concurrency"],
+      "stargazers_count": 5,
+      "forks_count": 0,
+      "pushed_at": "2026-07-21T10:00:00Z",
+      "default_branch": "trunk",
+      "fork": false,
+      "archived": false,
+      "disabled": false
+    },
+    {
+      "full_name": "octogo/old",
+      "html_url": "https://github.com/octogo/old",
+      "description": "Archived code.",
+      "language": "Go",
+      "topics": [],
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "pushed_at": "2026-07-23T10:00:00Z",
+      "default_branch": "main",
+      "fork": false,
+      "archived": true,
+      "disabled": false
+    }
+  ],
+  "commits": {
+    "octogo/packet": "1111111111111111111111111111111111111111",
+    "octogo/queue": "2222222222222222222222222222222222222222",
+    "octogo/old": "3333333333333333333333333333333333333333"
+  }
+}

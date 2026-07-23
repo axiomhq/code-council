@@ -28,6 +28,15 @@ repository-configured judges and uses explicit judges or automatic selection.
 Review-round precedence in fix mode is: explicit `--max-rounds`, repository
 configuration, then `defaultMaxReviewRounds`.
 
+A repository may also pin explicitly approved guest judges under
+`.goreview/judges/<github-handle>/`. Each has `profile.json`, `judge.md`, and
+`method.md`; public sources are recorded with retrieval time and repository
+revision. Users invoke one as `@handle`. It is validated before every use,
+shares the plugin's generic read-only guest agent, and is never automatically
+selected. Unknown plain labels fail with suggestions; they never trigger a
+network lookup. Discovery is a separate, explicit operation that shows the
+complete draft and requires approval before writing.
+
 Read-only mode always runs one review round. Fix mode accepts an integer from 2
 through `maxAllowedReviewRounds`. The last allowed round never edits because no
 round would remain to verify and re-review that edit. Five review rounds
@@ -35,11 +44,12 @@ therefore permit at most four fix attempts.
 
 ## Review
 
-1. Resolve a non-empty set of installed judges within the engine's seat cap.
-2. Load each selected judge's canonical rubric and linked methodology. The
-   methodology orders the investigation but cannot create or change a
-   deduction. Do not give judges `policy.md`, repository house style, or fixer
-   instructions.
+1. Resolve a non-empty set of installed or approved pinned judges within the
+   engine's seat cap.
+2. Load each selected judge's canonical rubric and linked methodology, or its
+   validated approved pinned rubric and methodology. The methodology orders the
+   investigation but cannot create or change a deduction. Do not give judges
+   `policy.md`, repository house style, or fixer instructions.
 3. Run judges independently and in parallel over the same scope. A judge may
    deduct only under its own rubric and cited repository evidence.
 4. Every cited deduction contains points, file plus symbol, an explanation, and
@@ -96,13 +106,13 @@ therefore permit at most four fix attempts.
 
 ## Result
 
-Every result identifies `plugin`, `language`, `selectedJudges`, `selection`,
-`reviewRounds`, `fixAttempts`, `maxReviewRounds`, and one terminal verdict. Fix
-mode also identifies fixer-policy provenance. Only `ACCEPTED` is a pass. All
-other verdicts must be reported without being reinterpreted as acceptance.
-Host adapters print each scorecard once, one overall verdict, and one compact
-run line. They do not add a narrative postmortem or dump the raw result unless
-the user asks for details.
+Every result identifies `plugin`, `language`, `selectedJudges`, selected guest
+provenance, `selection`, `reviewRounds`, `fixAttempts`, `maxReviewRounds`, and
+one terminal verdict. Fix mode also identifies fixer-policy provenance. Only
+`ACCEPTED` is a pass. All other verdicts must be reported without being
+reinterpreted as acceptance. Host adapters print each scorecard once, one
+overall verdict, and one compact run line. They do not add a narrative
+postmortem or dump the raw result unless the user asks for details.
 
 The named judges are homages based on public work. They are not the people
 themselves and do not imply affiliation, participation, or endorsement.
