@@ -16,10 +16,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
       - name: Run regression tests
         run: node --test tests/*.test.cjs
       - name: Run judge evaluations
         run: node --test evals/*.test.cjs
+      - name: Self-test agentic benchmark
+        run: node benchmarks/agentic/run.cjs --selftest
       - name: Check workflow syntax
         run: node --check plugins/goreview/workflow.js
       - name: Check guest discovery helper

@@ -1,6 +1,6 @@
 ---
 description: "Run GoLegends' named or approved repo-pinned Go judges over an immutable snapshot. Read-only by default; --fix uses a neutral chair, one fixer, independent verification, and re-review."
-argument-hint: "[list] [--fix] [--max-rounds N] [judge|@github...] [-- <scope path or pr N>]"
+argument-hint: "[list] [--json] [--fix] [--max-rounds N] [judge|@github...] [-- <scope path or pr N>]"
 ---
 
 Arguments: `$ARGUMENTS`
@@ -28,6 +28,7 @@ Split on the first literal `--`; everything after it is review scope. Before
 it:
 
 - `list` is metadata-only and cannot be combined.
+- `--json` selects the compact machine-readable result projection.
 - `--fix` enables writes.
 - `--max-rounds N` requires `--fix` and the configured integer range.
 - Remaining tokens are named judge labels or explicit `@github-handle`
@@ -107,6 +108,17 @@ the verified fix cycle returns `SNAPSHOT_CHANGED`; do not print stale
 scorecards as current.
 
 ## Render
+
+With `--json`, print only one JSON object with `schemaVersion`, `verdict`,
+`reviewRounds`, `fixAttempts`, `scores`, `withdrawnFingerprints`,
+`noChangeReasons`, and `checks`. Each score contains `judge`, `lensId`,
+`applicable`, `score`, `verdict`, and compact `deductions`. Each deduction
+contains only `ruleId`, `severity`, `fingerprint`, `primary` location,
+`explanation`, and `change`. Omit absent values or use empty arrays. This
+projection must not include the raw snapshot, captured file contents, prompts,
+rubrics, methods, or scorecard prose. Do not wrap it in a Markdown fence.
+
+Without `--json`, use the human rendering below.
 
 Print each `scores[].scorecard` once, then exactly one verdict and one compact
 run line containing selection, rationale, judge labels, applicable count,

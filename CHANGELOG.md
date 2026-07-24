@@ -2,6 +2,18 @@
 
 All notable changes to GoLegends are documented here.
 
+## 0.3.0 — 2026-07-24
+
+### Added
+
+- Opt-in compact `--json` rendering for automation without snapshots, captured
+  source, prompts, or rubric content.
+- An executable agentic benchmark with isolated baseline, read-only review, and
+  fix arms; seeded positive and negative Go changes; mutation guards; preserved
+  workspaces; offline rescoring; and cost, token, time, turn, and fix metrics.
+- No-spend scorer and known-good-fix self-tests, enforced in CI before live
+  benchmark runs.
+
 ## 0.2.2 — 2026-07-24
 
 ### Added

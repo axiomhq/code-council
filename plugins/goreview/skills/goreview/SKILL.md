@@ -15,8 +15,8 @@ Interpret requests as:
 ```text
 $goreview [list]
 $goreview add [@handle | https://github.com/handle]
-$goreview [judge|@handle...] [-- scope]
-$goreview --fix [--max-rounds N] [judge|@handle...] [-- scope]
+$goreview [--json] [judge|@handle...] [-- scope]
+$goreview [--json] --fix [--max-rounds N] [judge|@handle...] [-- scope]
 ```
 
 ## Resolve configuration
@@ -93,6 +93,15 @@ round never edits. Always release only a lock acquired by this run.
 
 Before rendering, recompute the current diff hash and compare it with the final
 snapshot. On mismatch return `SNAPSHOT_CHANGED`.
+
+When `--json` was requested, print only a compact JSON projection containing
+`schemaVersion`, `verdict`, `reviewRounds`, `fixAttempts`, `scores`,
+`withdrawnFingerprints`, `noChangeReasons`, and `checks`. Retain rule IDs,
+severity, fingerprints, primary locations, explanations, and requested changes.
+The projection must not include the raw snapshot, captured file contents,
+prompts, rubrics, methods, or scorecard prose.
+
+Otherwise use the human rendering:
 
 Print every scorecard once, one overall verdict, and one compact run line with
 named judges, stable lens IDs, selection rationale, applicable count, rounds,

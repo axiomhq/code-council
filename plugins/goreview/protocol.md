@@ -158,6 +158,16 @@ Only `ACCEPTED` is a pass. Defined non-pass verdicts are:
 Adapters print scorecards once, one verdict, and one compact run line. They do
 not reinterpret another verdict as acceptance.
 
+Adapters may expose an opt-in `--json` rendering for automation. It is a compact
+projection of the validated result with `schemaVersion`, `verdict`,
+`reviewRounds`, `fixAttempts`, `scores`, `withdrawnFingerprints`,
+`noChangeReasons`, and `checks`. Scores retain judge and lens identity,
+applicability, score, verdict, and deductions. Deductions retain rule ID,
+severity, fingerprint, primary location, explanation, and requested change.
+The projection must not include the raw snapshot, captured file contents,
+prompts, rubrics, methods, or rendered scorecard prose. Machine rendering does
+not change any verdict semantics.
+
 The named judges are homages based on public work. Their names remain the
 public identities; stable lens IDs are machine identifiers. The people are not
 affiliated with, endorsing, or personally participating in reviews.

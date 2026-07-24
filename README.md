@@ -38,6 +38,7 @@ Invoke `/goreview` in Claude Code or `$goreview` in Codex.
 /goreview dvyukov -- pkg/worker
 /goreview filosottile -- pkg/auth
 /goreview robpike -- pr 123
+/goreview --json bradfitz -- pkg/decoder
 /goreview:add @davecheney
 /goreview @davecheney -- pkg/cache
 /goreview --fix
@@ -205,6 +206,7 @@ refreshed.
 | [`policy.md`](plugins/goreview/policy.md) | Fixer-only implementation guidance |
 | [`workflow.js`](plugins/goreview/workflow.js) | Snapshot, rule, evidence, score, coverage, progress, and result validation |
 | [`evals/`](evals/) | Human-labelled positive, negative, applicability, and cross-lens fixtures |
+| [`benchmarks/agentic/`](benchmarks/agentic/) | Isolated executable baseline, review, and fix benchmark with offline rescoring |
 
 See [the architecture](docs/architecture.md).
 
@@ -226,6 +228,7 @@ are stable dotted lowercase identifiers.
 ```bash
 node --test tests/*.test.cjs
 node --test evals/*.test.cjs
+node benchmarks/agentic/run.cjs --selftest
 node --check plugins/goreview/workflow.js
 python3 plugins/goreview/scripts/github_judge.py fetch @octogo --fixture tests/fixtures/github-judge.json
 claude plugin validate --strict plugins/goreview/.claude-plugin/plugin.json
