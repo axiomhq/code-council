@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "deductionPrecision": 0.8,
+    "deductionRecall": 0.8,
+    "notApplicableAccuracy": 0.9,
+    "crossLensDeferralAccuracy": 0.9,
+    "duplicateFindingRateMaximum": 0.2,
+    "repeatRunStability": 0.8,
+    "fixSuccessRate": 0.9
+  }
+}

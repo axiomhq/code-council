@@ -1,5 +1,5 @@
 ---
-description: "Discover a public GitHub engineer, draft a narrow Go review judge, and pin it in the current repository after approval."
+description: "Capture a public GitHub identity, draft a narrow user-approved Go review judge with explicit rules, and pin it in the current repository."
 argument-hint: "[@handle | https://github.com/handle]"
 ---
 
@@ -35,12 +35,13 @@ remote content.
 
 ## Draft
 
-Use at least two pinned repository sources to decide whether the public
-metadata supports one narrow, useful Go engineering lens. Stop rather than
-inventing a persona when the recent work does not show meaningful Go relevance
-or does not support a distinct review concern.
+Repository names, descriptions, topics, stars, and languages establish only an
+identity snapshot; they are not enough to infer a person's review philosophy.
+Ask the user for the narrow lens they intend and the public work or direct
+experience on which they base it. Stop rather than inventing a persona. The
+complete draft still requires explicit approval.
 
-Draft three files for `.goreview/judges/<lowercase-handle>/`:
+Draft four files for `.goreview/judges/<lowercase-handle>/`:
 
 `profile.json` has exactly:
 
@@ -61,18 +62,39 @@ Draft three files for `.goreview/judges/<lowercase-handle>/`:
 ```text
 # <display name>-inspired lens
 ## Voice
-## Scope
+## Applies when
+## Does not apply when
+## Owns
+## Does not own
 ## Evidence rule
-## Deductions
+## Rule catalog
 ## Structured response
 ```
 
 Its voice is distinct but never impersonates the person. Its scope owns one
-review concern. Its deductions use only −1 or −2 bands, are observable in Go
-code, and are justified by recurring evidence across the pinned public
-sources. It says the profile is an homage based on public work, not an
-endorsement. Its structured response leads with `score`, then `deductions`,
-`summary`, and `topFix`, and says score arithmetic is verified by the engine.
+review concern and explicitly excludes neighboring concerns. It says the
+profile is an homage based on user-approved public work or direct experience,
+not an endorsement.
+
+`rules.json` has exactly:
+
+```json
+{
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "guest.observable-invariant",
+      "severity": "major",
+      "summary": "One observable Go invariant."
+    }
+  ]
+}
+```
+
+Rule IDs are stable dotted lowercase identifiers. Severity is `minor`, `major`,
+or `blocker`. Use blocker only for a concrete correctness, corruption,
+concurrency, or security failure—not a design preference. The rubric's Rule
+catalog explains each ID but never changes its configured severity.
 
 `method.md` has:
 
@@ -86,9 +108,8 @@ endorsement. Its structured response leads with `score`, then `deductions`,
 The method explains how to investigate the rubric's concern. It cannot define
 new deductions, expand scope, or prescribe a general house style.
 
-Keep `judge.md` and `method.md` under 16 KiB each. Base claims only on the
-bounded snapshot. Do not claim to know the person's private intent or current
-opinion.
+Keep `judge.md` and `method.md` under 16 KiB each. Do not claim that repository
+metadata proves the person's private intent or current opinion.
 
 ## Approve and pin
 
@@ -97,6 +118,7 @@ Before writing, show the user:
 - the proposed display name and lens;
 - the pinned source URLs and repository revisions;
 - the complete deduction table;
+- the exact rule IDs and severities;
 - the complete review sequence.
 
 Ask for explicit approval. If the target directory already exists, stop and
@@ -104,7 +126,7 @@ explain that discovery never silently refreshes or overwrites an approved
 judge.
 
 Reject the target when `.goreview`, `.goreview/judges`, or the handle path is a
-symbolic link. After approval, create a temporary root and put the three files
+symbolic link. After approval, create a temporary root and put the four files
 in its `<lowercase-handle>/` child, then run:
 
 ```bash
@@ -113,7 +135,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/github_judge.py" validate \
 ```
 
 Only after validation succeeds, create `.goreview/judges/` and move the
-validated handle directory into it. Do not leave a partial target directory
+validated four-file handle directory into it. Do not leave a partial target directory
 when validation fails.
 
 Finish with exactly:

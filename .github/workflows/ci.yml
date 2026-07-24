@@ -18,5 +18,11 @@ jobs:
           node-version: 22
       - name: Run regression tests
         run: node --test tests/*.test.cjs
+      - name: Run judge evaluations
+        run: node --test evals/*.test.cjs
       - name: Check workflow syntax
         run: node --check plugins/goreview/workflow.js
+      - name: Check guest discovery helper
+        run: python3 plugins/goreview/scripts/github_judge.py fetch @octogo --fixture tests/fixtures/github-judge.json
+      - name: Check whitespace
+        run: git diff --check

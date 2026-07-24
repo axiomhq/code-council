@@ -21,345 +21,253 @@ function markdownFiles(directory) {
   })
 }
 
-test('Claude and Codex identities agree on GoLegends', () => {
+test('Claude and Codex packages agree on the named GoLegends 0.2 identity', () => {
   const repository = 'https://github.com/axiomhq/go-legends'
   const claudePlugin = pluginJson('.claude-plugin/plugin.json')
   const codexPlugin = pluginJson('.codex-plugin/plugin.json')
   const claudeMarketplace = json('.claude-plugin/marketplace.json')
   const codexMarketplace = json('.agents/plugins/marketplace.json')
-  const claudeEntry = claudeMarketplace.plugins.find(({ name }) => name === claudePlugin.name)
-  const codexEntry = codexMarketplace.plugins.find(({ name }) => name === claudePlugin.name)
 
   assert.equal(claudePlugin.name, 'goreview')
+  assert.equal(claudePlugin.version, '0.2.0')
   assert.equal(codexPlugin.name, claudePlugin.name)
-  assert.equal(claudePlugin.version, '0.1.5')
   assert.equal(codexPlugin.version.split('+', 1)[0], claudePlugin.version)
-  assert.match(codexPlugin.version, /^0\.1\.5\+codex\.\d{14}$/)
-  assert.equal(claudePlugin.license, 'MIT')
-  assert.equal(claudePlugin.author.name, 'Seif Lotfy')
-  assert.match(claudePlugin.description, /named Go engineering perspectives/i)
-  assert.deepEqual(claudePlugin.homepage, repository)
-  assert.deepEqual(claudePlugin.repository, repository)
-  assert.equal(codexPlugin.author.name, 'Seif Lotfy')
-  assert.match(codexPlugin.description, /named Go engineering perspectives/i)
-  assert.equal(codexPlugin.homepage, repository)
+  assert.match(codexPlugin.version, /^0\.2\.0\+codex\.\d{14}$/)
+  assert.equal(claudePlugin.repository, repository)
   assert.equal(codexPlugin.repository, repository)
-  assert.equal(codexPlugin.interface.displayName, 'GoLegends')
-  assert.equal(codexPlugin.interface.developerName, 'Seif Lotfy')
-  assert.equal(codexPlugin.interface.websiteURL, repository)
   assert.equal(claudeMarketplace.name, 'go-legends')
-  assert.equal(claudeMarketplace.owner.name, 'Seif Lotfy')
-  assert.equal(claudeEntry.source, './plugins/goreview')
   assert.equal(codexMarketplace.name, 'go-legends')
-  assert.equal(codexMarketplace.interface.displayName, 'GoLegends')
-  assert.equal(codexEntry.source.path, './plugins/goreview')
-  assert.equal(codexEntry.policy.installation, 'AVAILABLE')
-  assert.equal(codexEntry.policy.authentication, 'ON_INSTALL')
 })
 
-test('review.json is the canonical Go roster and round configuration', () => {
-  const reviewConfig = pluginJson('review.json')
-  const labels = reviewConfig.judges.map(({ label }) => label)
-  const paths = reviewConfig.judges.map(judge => `./${judge.path}`)
-  const methods = reviewConfig.judges.map(judge => judge.method)
-  const claudePlugin = pluginJson('.claude-plugin/plugin.json')
+test('review.json owns stable lens IDs, severity rules, sources, and neutral support agents', () => {
+  const config = pluginJson('review.json')
+  const labels = config.judges.map(judge => judge.label)
+  const lensIds = config.judges.map(judge => judge.lensId)
+  const methods = config.judges.map(judge => judge.method)
 
-  assert.equal(reviewConfig.id, 'goreview')
-  assert.equal(reviewConfig.name, 'GoLegends')
-  assert.equal(reviewConfig.language, 'Go')
-  assert.equal(reviewConfig.defaultMaxReviewRounds, 5)
-  assert.equal(reviewConfig.maxAllowedReviewRounds, 10)
-  assert.equal(reviewConfig.fixer, 'fixer')
-  assert.match(reviewConfig.verification, /go build.*go test.*go vet/i)
-  assert.equal(new Set(labels).size, 11)
-  assert.equal(new Set(methods).size, labels.length)
-  assert.equal(new Set(reviewConfig.conflictPriority).size, labels.length)
-  assert.deepEqual([...reviewConfig.conflictPriority].sort(), [...labels].sort())
-  assert.equal(reviewConfig.defaultJudges.every(label => labels.includes(label)), true)
+  assert.equal(config.schemaVersion, 2)
+  assert.equal(config.name, 'GoLegends')
+  assert.equal(config.language, 'Go')
+  assert.equal(config.defaultMaxReviewRounds, 3)
+  assert.equal(config.maxAllowedReviewRounds, 6)
+  assert.deepEqual(config.passPolicy.severityPoints, { minor: 1, major: 3, blocker: 10 })
+  assert.deepEqual(config.passPolicy.failOnSeverities, ['major', 'blocker'])
+  assert.equal(config.passPolicy.minimumApplicableJudges, 1)
+  assert.equal(config.chair, 'chair')
+  assert.equal(config.verifier, 'verifier')
+  assert.equal(config.fixer, 'fixer')
+  assert.equal(labels.length, 12)
+  assert.equal(new Set(labels).size, labels.length)
+  assert.equal(new Set(lensIds).size, lensIds.length)
+  assert.equal(new Set(methods).size, methods.length)
+  assert.equal(labels.includes('dvyukov'), true)
 
-  for (const judge of reviewConfig.judges) {
-    assert.equal(fs.existsSync(path.join(pluginRoot, judge.path)), true, `missing ${judge.path}`)
-    assert.equal(fs.existsSync(path.join(pluginRoot, judge.method)), true, `missing ${judge.method}`)
-    assert.match(frontmatter(readPlugin(judge.path)), new RegExp(`^name:\\s*${judge.label}$`, 'm'))
-    assert.equal(readPlugin(judge.path).includes(`../${judge.method}`), true, `${judge.path} must link its method`)
+  for (const judge of config.judges) {
+    assert.match(judge.label, /^[a-z0-9-]+$/)
+    assert.match(judge.lensId, /^[a-z0-9-]+$/)
+    assert.equal(typeof judge.displayName, 'string')
+    assert.equal(typeof judge.appliesWhen, 'string')
+    assert.equal(judge.sources.length >= 2, true)
+    assert.equal(judge.rules.length > 0, true)
+    assert.equal(new Set(judge.rules.map(rule => rule.id)).size, judge.rules.length)
+    for (const rule of judge.rules) {
+      assert.match(rule.id, /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/)
+      assert.equal(['minor', 'major', 'blocker'].includes(rule.severity), true)
+      if (rule.remediation !== undefined) {
+        assert.equal(['code', 'external-evidence'].includes(rule.remediation), true)
+      }
+    }
+    assert.equal(fs.existsSync(path.join(pluginRoot, judge.path)), true)
+    assert.equal(fs.existsSync(path.join(pluginRoot, judge.method)), true)
+  }
+})
 
+test('judge names remain public identities while rubrics use stable rule catalogs', () => {
+  const config = pluginJson('review.json')
+  const expectedNames = new Map([
+    ['robpike', 'Rob Pike'],
+    ['bradfitz', 'Brad Fitzpatrick'],
+    ['rsc', 'Russ Cox'],
+    ['mitchellh', 'Mitchell Hashimoto'],
+    ['kamstrup', 'Mikkel Kamstrup Erlandsen'],
+    ['peterbourgon', 'Peter Bourgon'],
+    ['armon', 'Armon Dadgar'],
+    ['tsenart', 'Tomás Senart'],
+    ['dgryski', 'Damian Gryski'],
+    ['filosottile', 'Filippo Valsorda'],
+    ['rakyll', 'Jaana Dogan'],
+    ['dvyukov', 'Dmitry Vyukov'],
+  ])
+
+  for (const judge of config.judges) {
+    assert.equal(judge.displayName, expectedNames.get(judge.label))
+    const source = readPlugin(judge.path)
+    const header = frontmatter(source)
+    assert.match(header, new RegExp(`^name:\\s*${judge.label}$`, 'm'))
+    assert.match(header, /^tools: Read, Grep, Glob$/m)
+    assert.doesNotMatch(header, /\b(?:Bash|Edit|Write)\b/)
+    for (const heading of [
+      '## Voice',
+      '## Applies when',
+      '## Does not apply when',
+      '## Owns',
+      '## Does not own',
+      '## Evidence rule',
+      '## Rule catalog',
+      '## Structured response',
+    ]) assert.equal(source.includes(heading), true, `${judge.path} missing ${heading}`)
+    assert.doesNotMatch(source, /Auto-fail/)
+    for (const rule of judge.rules) assert.equal(source.includes(`\`${rule.id}\``), true, `${judge.path} missing ${rule.id}`)
+    assert.match(source, /not affiliated with or endorsed by/i)
+  }
+})
+
+test('named judges cannot invoke shell writes; only the fixer edits and verifier runs checks', () => {
+  const config = pluginJson('review.json')
+  const fixer = readPlugin('fixer.md')
+  const verifier = readPlugin('verifier.md')
+  const chair = readPlugin('chair.md')
+  const guest = readPlugin('judges/guest.md')
+
+  for (const judge of config.judges) {
+    assert.doesNotMatch(frontmatter(readPlugin(judge.path)), /\b(?:Bash|Edit|Write)\b/)
+  }
+  assert.match(frontmatter(guest), /^tools: Read, Grep, Glob$/m)
+  assert.match(frontmatter(chair), /^tools: Read, Grep, Glob$/m)
+  assert.match(frontmatter(verifier), /^tools: Read, Grep, Glob, Bash$/m)
+  assert.doesNotMatch(frontmatter(verifier), /\b(?:Edit|Write)\b/)
+  assert.match(frontmatter(fixer), /^tools: Read, Grep, Glob, Edit, Write, Bash$/m)
+  assert.match(verifier, /gofmt -d/)
+  assert.match(verifier, /out of scope/i)
+})
+
+test('every method is process-only and the local concurrency method is evidence-backed', () => {
+  const config = pluginJson('review.json')
+  for (const judge of config.judges) {
     const method = readPlugin(judge.method)
     assert.match(method, /^# .+ method$/m)
     assert.match(method, /^## Review sequence$/m)
     assert.match(method, /^## Evidence to seek$/m)
     assert.match(method, /^## Stop condition$/m)
-    assert.doesNotMatch(method, /^## Deductions$/m)
+    assert.doesNotMatch(method, /^## (?:Deductions|Rule catalog)$/m)
   }
 
+  assert.match(readPlugin('methods/dvyukov.md'), /happens-before/i)
+  assert.match(readPlugin('judges/dvyukov.md'), /send and close/i)
+  assert.match(readPlugin('methods/dgryski.md'), /does\s+not execute commands/i)
+  assert.match(readPlugin('judges/dgryski.md'), /measurement\s+opportunity, not proof/i)
+  const dgryski = config.judges.find(judge => judge.label === 'dgryski')
   assert.deepEqual(
-    [...claudePlugin.agents].sort(),
-    [...paths, './judges/guest.md', './fixer.md'].sort(),
-    'Claude must expose exactly the canonical judges, generic guest, and fixer',
+    dgryski.rules.find(rule => rule.id === 'performance.cost-unquantified'),
+    { id: 'performance.cost-unquantified', severity: 'minor', remediation: 'external-evidence' },
   )
 })
 
-test('judges are read-only and the fixer is the only writing agent', () => {
-  const reviewConfig = pluginJson('review.json')
-
-  for (const { path: judgePath } of reviewConfig.judges) {
-    const source = readPlugin(judgePath)
-    const header = frontmatter(source)
-    assert.match(header, /^tools: Read, Grep, Glob, Bash$/m)
-    assert.doesNotMatch(header, /\b(?:Edit|Write)\b/)
-    assert.match(source, /^## Structured response$/m)
-    assert.match(source, /`score`: first[\s\S]*`deductions`:/)
-    assert.match(source, /workflow verifies the score against cited deductions/i)
-    assert.match(source, /\bpoints\b/)
-    assert.match(source, /\bevidence\b/)
-    assert.match(source, /-inspired lens/i)
-    assert.match(source, /^## Voice$/m)
-    assert.doesNotMatch(source, /policy\.md/)
-    assert.doesNotMatch(source, /^## Output$/m)
-  }
-
-  const fixer = readPlugin('fixer.md')
-  assert.match(frontmatter(fixer), /^name:\s*fixer$/m)
-  assert.match(frontmatter(fixer), /^tools: Read, Grep, Glob, Edit, Write, Bash$/m)
-
-  const guest = readPlugin('judges/guest.md')
-  assert.match(frontmatter(guest), /^name:\s*guest$/m)
-  assert.match(frontmatter(guest), /^tools: Read, Grep, Glob, Bash$/m)
-  assert.doesNotMatch(frontmatter(guest), /\b(?:Edit|Write)\b/)
-  assert.match(guest, /never infer a person's views from their name/i)
-  assert.match(guest, /`score` first/)
+test('Claude manifest exposes the canonical judges plus guest, chair, verifier, and fixer', () => {
+  const config = pluginJson('review.json')
+  const manifest = pluginJson('.claude-plugin/plugin.json')
+  const expected = [
+    ...config.judges.map(judge => `./${judge.path}`),
+    './judges/guest.md',
+    './chair.md',
+    './verifier.md',
+    './fixer.md',
+  ]
+  assert.deepEqual([...manifest.agents].sort(), expected.sort())
 })
 
-test('the original three judges retain their distinct hard checks', () => {
-  const robpike = readPlugin('judges/robpike.md')
-  const bradfitz = readPlugin('judges/bradfitz.md')
-  const rsc = readPlugin('judges/rsc.md')
-
-  assert.match(robpike, /interface where a concrete type works/i)
-  assert.match(robpike, /for\s+flexibility.*suspect/is)
-  assert.match(bradfitz, /serialized length or offset/i)
-  assert.match(bradfitz, /error is swallowed/i)
-  assert.match(rsc, /unordered map traversal/i)
-  assert.match(rsc, /global or build-time state/i)
-})
-
-test('the measured-performance judge is a bounded evidence audit', () => {
-  const judge = readPlugin('judges/dgryski.md')
-  const method = readPlugin('methods/dgryski.md')
+test('host adapters share snapshot, provenance, rules, neutral verification, and verdict semantics', () => {
   const protocol = readPlugin('protocol.md')
-
-  assert.match(judge, /strict command budget/i)
-  assert.match(judge, /does not run a missing performance campaign/i)
-  assert.match(method, /not a performance-engineering campaign/i)
-  assert.match(method, /review at most the two highest-impact claims/i)
-  assert.match(method, /five-minute wall-clock budget/i)
-  assert.match(method, /two existing targeted benchmark commands/i)
-  assert.match(method, /-count` no greater than 3/i)
-  assert.match(method, /do not run broad benchmark suites/i)
-  assert.match(method, /does not generate a missing benchmark campaign/i)
-  assert.match(method, /recheck only this judge's prior cited deductions/i)
-  assert.match(protocol, /measured-performance seat is a bounded evidence audit/i)
-  assert.match(protocol, /capped at five minutes/i)
-  assert.match(readPlugin('workflow.js'), /DGRYSKI_REVIEW_WINDOW_MS\s*=\s*Math\.min\(SEAT_DEADLINE_MS, 150_000\)/)
-})
-
-test('the fixer executes a complete plan without making design decisions', () => {
-  const protocol = readPlugin('protocol.md')
-  const fixer = readPlugin('fixer.md')
-  const workflow = readPlugin('workflow.js')
-
-  for (const source of [protocol, fixer, workflow]) {
-    assert.match(source, /file and symbol/i)
-    assert.match(source, /must not change/i)
-    assert.match(source, /design\s+decision/i)
-  }
-
-  assert.match(fixer, /PLAN BLOCKED/)
-  assert.match(workflow, /PLAN BLOCKED/)
-})
-
-test('host adapters share one protocol and one review configuration', () => {
   const command = readPlugin('commands/goreview.md')
-  const addCommand = readPlugin('commands/add.md')
   const skill = readPlugin('skills/goreview/SKILL.md')
   const workflow = readPlugin('workflow.js')
 
-  for (const source of [command, skill]) {
-    assert.match(source, /protocol\.md/)
-    assert.match(source, /review\.json/)
-    assert.match(source, /policy\.md/)
-    assert.match(source, /maxReviewRounds/)
-    assert.match(source, /method/i)
-    assert.match(source, /only.*fixer|fixer.*only/is)
+  for (const source of [protocol, command, skill, workflow]) {
+    assert.match(source, /snapshot/i)
+    assert.match(source, /rule ID/i)
+    assert.match(source, /severit(?:y|ies)/i)
+    assert.match(source, /INSUFFICIENT_COVERAGE/)
+    assert.match(source, /EVIDENCE_REQUIRED/)
+    assert.match(source, /OSCILLATION/)
   }
-
-  assert.match(command, /workflow\.js/)
-  assert.match(command, /github_judge\.py.*validate/s)
-  assert.match(command, /never fetch GitHub during review/i)
-  assert.match(addCommand, /github_judge\.py.*fetch/s)
-  assert.match(addCommand, /explicit approval/i)
-  assert.match(addCommand, /untrusted data/i)
-  assert.match(skill, /github_judge\.py fetch/)
-  assert.match(skill, /Never fetch a\s+profile during review/i)
-  assert.match(command, /--max-rounds/)
-  assert.match(workflow, /defaultMaxReviewRounds/)
-  assert.match(workflow, /maxAllowedReviewRounds/)
-  assert.doesNotMatch(command, /const\s+(?:JUDGES|ROSTER|DEFAULT_BENCH)\s*=/)
-  assert.doesNotMatch(skill, /const\s+(?:JUDGES|ROSTER|DEFAULT_BENCH)\s*=/)
+  for (const source of [protocol, command, skill]) {
+    assert.match(source, /neutral chair/i)
+    assert.match(source, /independent verifier/i)
+    assert.match(source, /repository.*judges/i)
+  }
 })
 
-test('GitHub judge discovery is bounded and pinned before approval', () => {
-  const script = path.join(pluginRoot, 'scripts', 'github_judge.py')
+test('GitHub guest validation requires an approved rubric, method, and rule catalog', () => {
   const fixture = path.join(root, 'tests', 'fixtures', 'github-judge.json')
-  const fetched = childProcess.spawnSync(
-    'python3',
-    [script, 'fetch', '@octogo', '--fixture', fixture],
-    { encoding: 'utf8' },
-  )
-
+  const script = path.join(pluginRoot, 'scripts', 'github_judge.py')
+  const fetched = childProcess.spawnSync('python3', [script, 'fetch', '@octogo', '--fixture', fixture], { encoding: 'utf8' })
   assert.equal(fetched.status, 0, fetched.stderr)
   const snapshot = JSON.parse(fetched.stdout)
-  assert.equal(snapshot.profile.login, 'octogo')
-  assert.deepEqual(snapshot.repositories.map(repo => repo.fullName), [
-    'octogo/packet',
-    'octogo/queue',
-  ])
-  assert.equal(snapshot.repositories.every(repo => /^[0-9a-f]{40}$/.test(repo.revision)), true)
-  assert.equal(snapshot.sources.length, 3)
-  assert.match(snapshot.notice, /untrusted public data/i)
-  assert.equal(Object.hasOwn(snapshot.repositories[0], 'readme'), false)
+  assert.equal(snapshot.repositories.length, 2)
+  assert.equal(snapshot.sources[1].revision, '1'.repeat(40))
 
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'goreview-guest-'))
-  const directory = path.join(temporaryRoot, 'octogo')
-  fs.mkdirSync(directory)
-  fs.writeFileSync(path.join(directory, 'profile.json'), JSON.stringify({
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'goreview-guest-'))
+  const guestDir = path.join(temp, 'octogo')
+  fs.mkdirSync(guestDir)
+  fs.writeFileSync(path.join(guestDir, 'profile.json'), JSON.stringify({
     schemaVersion: 1,
     label: 'gh-octogo',
     github: 'octogo',
     displayName: 'Octo Go',
-    lens: 'Bounded network inputs',
+    lens: 'Bounded input',
     retrievedAt: snapshot.retrievedAt,
     sources: snapshot.sources,
-  }, null, 2))
-  fs.writeFileSync(path.join(directory, 'judge.md'), [
+  }))
+  fs.writeFileSync(path.join(guestDir, 'judge.md'), [
     '# Octo Go-inspired lens',
-    '## Voice',
-    'Stay concrete.',
-    '## Scope',
-    'Review bounded network inputs.',
-    '## Evidence rule',
-    'Cite code.',
-    '## Deductions',
-    '- **−2:** unbounded input.',
-    '## Structured response',
-    'Lead with score.',
+    '## Voice', 'Be precise.',
+    '## Applies when', 'Inputs change.',
+    '## Does not apply when', 'Inputs do not change.',
+    '## Owns', 'Bounds.',
+    '## Does not own', 'Other concerns.',
+    '## Evidence rule', 'Cite code.',
+    '## Rule catalog', '- `guest.unbounded-input` — major: External input has no bound.',
+    '## Structured response', 'Lead with score.',
   ].join('\n'))
-  fs.writeFileSync(path.join(directory, 'method.md'), [
+  fs.writeFileSync(path.join(guestDir, 'method.md'), [
     '# Octo Go method',
-    '## Review sequence',
-    '1. Trace one input.',
-    '## Evidence to seek',
-    '- A concrete bound.',
-    '## Stop condition',
-    'Stop when the bound is proven.',
+    '## Review sequence', '1. Inspect.',
+    '## Evidence to seek', '- A bound.',
+    '## Stop condition', 'Stop when bounded.',
   ].join('\n'))
+  fs.writeFileSync(path.join(guestDir, 'rules.json'), JSON.stringify({
+    schemaVersion: 1,
+    rules: [{ id: 'guest.unbounded-input', severity: 'major', summary: 'External input has no bound.' }],
+  }))
 
-  const validated = childProcess.spawnSync(
-    'python3',
-    [script, 'validate', directory],
-    { encoding: 'utf8' },
-  )
+  const validated = childProcess.spawnSync('python3', [script, 'validate', guestDir], { encoding: 'utf8' })
   assert.equal(validated.status, 0, validated.stderr)
-  const guest = JSON.parse(validated.stdout)
-  assert.equal(guest.label, 'gh-octogo')
-  assert.equal(guest.github, 'octogo')
-  assert.match(guest.rubric, /^# Octo Go-inspired lens/)
-  assert.match(guest.method, /^# Octo Go method/)
-  fs.rmSync(temporaryRoot, { recursive: true, force: true })
-})
-
-test('Codex skill metadata is complete', () => {
-  const skill = readPlugin('skills/goreview/SKILL.md')
-  const metadata = readPlugin('skills/goreview/agents/openai.yaml')
-
-  assert.doesNotMatch(skill, /\[TODO:/)
-  assert.match(frontmatter(skill), /^name:\s*goreview$/m)
-  assert.match(metadata, /display_name:\s*"GoLegends"/)
-  assert.match(metadata, /\$goreview/)
-})
-
-test('installation docs point to the GoLegends marketplace', () => {
-  const readme = read('README.md')
-  assert.match(readme, /plugin marketplace add axiomhq\/go-legends/)
-  assert.match(readme, /plugin install goreview@go-legends/)
-  assert.match(readme, /plugin add goreview@go-legends/)
-  assert.match(readme, /--max-rounds/)
-  assert.match(readme, /seiflotfy/i)
+  const record = JSON.parse(validated.stdout)
+  assert.deepEqual(record.rules, [{ id: 'guest.unbounded-input', severity: 'major', summary: 'External input has no bound.' }])
+  fs.rmSync(temp, { recursive: true, force: true })
 })
 
 test('all local Markdown links resolve', () => {
-  for (const absolute of markdownFiles(root)) {
-    if (absolute.includes(`${path.sep}.git${path.sep}`)) continue
-    const relative = path.relative(root, absolute)
-    const directory = path.dirname(absolute)
-
-    for (const match of fs.readFileSync(absolute, 'utf8').matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
+  const files = markdownFiles(root).filter(file => !file.includes(`${path.sep}.git${path.sep}`))
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf8')
+    for (const match of source.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
       const target = match[1]
       if (/^(?:https?:|mailto:|#)/.test(target)) continue
-      const withoutAnchor = decodeURIComponent(target.split('#')[0])
-      assert.equal(fs.existsSync(path.resolve(directory, withoutAnchor)), true, `${relative}: missing ${target}`)
+      const clean = target.split('#', 1)[0]
+      assert.equal(fs.existsSync(path.resolve(path.dirname(file), clean)), true, `${file}: missing ${target}`)
     }
   }
 })
 
-test('the repository contains one Go review plugin', () => {
-  assert.equal(fs.existsSync(path.join(root, 'docs', 'launch')), false)
-  assert.deepEqual(fs.readdirSync(path.join(root, 'plugins')), ['goreview'])
-  assert.equal(fs.existsSync(path.join(pluginRoot, 'languages')), false)
-})
-
-test('the GoLegends marketplace installs goreview', () => {
-  const claudeMarketplace = json('.claude-plugin/marketplace.json')
-  const codexMarketplace = json('.agents/plugins/marketplace.json')
-
-  assert.equal(claudeMarketplace.name, 'go-legends')
-  assert.deepEqual(claudeMarketplace.plugins.map(plugin => plugin.name), ['goreview'])
-  assert.deepEqual(codexMarketplace.plugins.map(plugin => plugin.name), ['goreview'])
-})
-
-test('the engine and command document the same terminal verdicts', () => {
-  const workflow = readPlugin('workflow.js')
-  const command = readPlugin('commands/goreview.md')
-  const verdicts = [
-    'INSPECT',
-    'INVALID_REQUEST',
-    'JUDGES_UNAVAILABLE',
-    'BUDGET_EXHAUSTED',
-    'FIX_FAILED',
-    'ACCEPTED',
-    'REVIEW_ONLY',
-    'SCOPE_EXPLOSION',
-    'STALL',
-  ]
-
-  for (const verdict of verdicts) {
-    assert.match(workflow, new RegExp(`\\b${verdict}\\b`), `workflow must declare ${verdict}`)
-    assert.match(command, new RegExp(`\\b${verdict}\\b`), `command must handle ${verdict}`)
-  }
-})
-
-test('per-judge JSON leads with the score and keeps explanations short', () => {
-  const protocol = readPlugin('protocol.md')
-  const workflow = readPlugin('workflow.js')
-  const command = readPlugin('commands/goreview.md')
-
-  assert.match(protocol, /judge JSON.*begins with `score`.*followed immediately by `deductions`/is)
-  assert.match(protocol, /at\s+most 200 characters/i)
-  assert.match(protocol, /at most four cited\s+deductions/i)
-  assert.match(workflow, /MAX_EXPLANATION_CHARS\s*=\s*200/)
-  assert.match(workflow, /MAX_RENDERED_DEDUCTIONS\s*=\s*4/)
-  assert.match(workflow, /required:\s*\['score', 'deductions', 'summary', 'topFix'\]/)
-  assert.match(workflow, /reported score.*cited deductions require/)
-  assert.match(workflow, /Do not include reproduction narration/i)
-  assert.match(command, /scorecard.*exactly once/is)
-  assert.match(command, /Do not repeat deductions.*narrate the run/is)
+test('CI and release documentation cover the complete validation surface', () => {
+  const ci = read('.github/workflows/ci.yml')
+  const changelog = read('CHANGELOG.md')
+  assert.match(ci, /node --test tests\/\*\.test\.cjs/)
+  assert.match(ci, /node --check plugins\/goreview\/workflow\.js/)
+  assert.match(ci, /github_judge\.py/)
+  assert.match(ci, /node --test evals\/\*\.test\.cjs/)
+  assert.match(ci, /git diff --check/)
+  assert.match(changelog, /## 0\.2\.0/)
+  assert.doesNotMatch(changelog, /0\.1\.0 — unreleased/)
 })

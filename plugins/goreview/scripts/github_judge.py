@@ -27,6 +27,8 @@ MAX_REPOSITORIES = 6
 MAX_RUBRIC_CHARS = 16 * 1024
 MAX_METHOD_CHARS = 16 * 1024
 MAX_SOURCES = MAX_REPOSITORIES + 1
+MAX_RULES = 24
+RULE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 
 
 class DiscoveryError(RuntimeError):
@@ -280,6 +282,9 @@ def validate_guest(directory: Path) -> dict[str, Any]:
         raise DiscoveryError(f"Invalid profile.json: {exc}.") from exc
     if not isinstance(profile, dict):
         raise DiscoveryError("profile.json must be a JSON object.")
+    actual_entries = {entry.name for entry in directory.iterdir()}
+    if actual_entries != {"profile.json", "judge.md", "method.md", "rules.json"}:
+        raise DiscoveryError("Pinned judge directory must contain exactly profile.json, judge.md, method.md, and rules.json.")
     expected_keys = {
         "schemaVersion", "label", "github", "displayName", "lens", "retrievedAt", "sources"
     }
@@ -328,14 +333,48 @@ def validate_guest(directory: Path) -> dict[str, Any]:
 
     rubric = read_bounded(directory / "judge.md", MAX_RUBRIC_CHARS, "judge.md")
     method = read_bounded(directory / "method.md", MAX_METHOD_CHARS, "method.md")
-    for heading in ("## Voice", "## Scope", "## Evidence rule", "## Deductions", "## Structured response"):
+    rules_path = directory / "rules.json"
+    if rules_path.is_symlink() or not rules_path.is_file():
+        raise DiscoveryError("rules.json must be a regular file, not a symlink.")
+    try:
+        rule_catalog = json.loads(rules_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise DiscoveryError(f"Invalid rules.json: {exc}.") from exc
+    if not isinstance(rule_catalog, dict) or set(rule_catalog) != {"schemaVersion", "rules"} or rule_catalog.get("schemaVersion") != 1:
+        raise DiscoveryError("rules.json has an unsupported schema or unknown fields.")
+    raw_rules = rule_catalog.get("rules")
+    if not isinstance(raw_rules, list) or not 1 <= len(raw_rules) <= MAX_RULES:
+        raise DiscoveryError(f"rules.json requires 1-{MAX_RULES} rules.")
+    rules = []
+    for index, rule in enumerate(raw_rules):
+        if not isinstance(rule, dict) or set(rule) != {"id", "severity", "summary"}:
+            raise DiscoveryError(f"rules.json rule {index + 1} has invalid fields.")
+        rule_id = require_text(rule, "id", 120)
+        severity = require_text(rule, "severity", 20)
+        summary = require_text(rule, "summary", 300)
+        if not RULE_ID_RE.fullmatch(rule_id) or severity not in {"minor", "major", "blocker"}:
+            raise DiscoveryError(f"rules.json rule {index + 1} has an invalid ID or severity.")
+        rules.append({"id": rule_id, "severity": severity, "summary": summary})
+    if len({rule["id"] for rule in rules}) != len(rules):
+        raise DiscoveryError("rules.json rule IDs must be unique.")
+
+    for heading in ("## Voice", "## Applies when", "## Does not apply when", "## Owns", "## Does not own", "## Evidence rule", "## Rule catalog", "## Structured response"):
         if heading not in rubric:
             raise DiscoveryError(f"judge.md is missing {heading}.")
+    for rule in rules:
+        rubric_rule = re.compile(
+            rf"`{re.escape(rule['id'])}`\s*[—-]\s*{rule['severity']}\b",
+            re.IGNORECASE,
+        )
+        if not rubric_rule.search(rubric):
+            raise DiscoveryError(
+                f"judge.md must explain {rule['id']} with its configured {rule['severity']} severity."
+            )
     for heading in ("## Review sequence", "## Evidence to seek", "## Stop condition"):
         if heading not in method:
             raise DiscoveryError(f"method.md is missing {heading}.")
-    if "## Deductions" in method:
-        raise DiscoveryError("method.md cannot define deductions.")
+    if "## Deductions" in method or "## Rule catalog" in method:
+        raise DiscoveryError("method.md cannot define rules.")
 
     return {
         "label": label,
@@ -344,6 +383,7 @@ def validate_guest(directory: Path) -> dict[str, Any]:
         "lens": lens,
         "rubric": rubric,
         "method": method,
+        "rules": rules,
         "retrievedAt": retrieved_at,
         "sources": sources,
     }

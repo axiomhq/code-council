@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 2,
   "id": "goreview",
   "name": "GoLegends",
   "language": "Go",
@@ -7,101 +8,316 @@
     "bradfitz",
     "robpike"
   ],
-  "conflictPriority": [
-    "bradfitz",
-    "filosottile",
-    "rsc",
-    "mitchellh",
-    "kamstrup",
-    "robpike",
-    "peterbourgon",
-    "armon",
-    "tsenart",
-    "rakyll",
-    "dgryski"
+  "chair": "chair",
+  "verifier": "verifier",
+  "passPolicy": {
+    "scoreThreshold": 8,
+    "minimumApplicableJudges": 1,
+    "severityPoints": {
+      "minor": 1,
+      "major": 3,
+      "blocker": 10
+    },
+    "failOnSeverities": [
+      "major",
+      "blocker"
+    ]
+  },
+  "conflictPolicy": [
+    "preserve documented behavior and compatibility",
+    "prevent security, corruption, and concurrency failures",
+    "preserve bounded resource use and recoverability",
+    "prefer the smallest change after invariants are satisfied"
   ],
   "fixer": "fixer",
-  "verification": "run Go formatting plus scoped go build, go test, and go vet for every affected package",
-  "selectionHint": "prefer rsc for public or persisted contracts, bradfitz for untrusted input, filosottile for trust boundaries, mitchellh for component boundaries and ownership, kamstrup for sibling repetition and reuse, peterbourgon for services, armon for coordination, tsenart for load paths, dgryski for performance claims, rakyll for production diagnosis, and robpike for simplicity",
-  "defaultMaxReviewRounds": 5,
-  "maxAllowedReviewRounds": 10,
+  "verification": {
+    "requiredChecks": [
+      "scope",
+      "format",
+      "build",
+      "test",
+      "vet"
+    ],
+    "timeoutSeconds": 600,
+    "instruction": "check the changed-file boundary, gofmt diff, and scoped go build, go test, and go vet for every affected package"
+  },
+  "selectionHint": "prefer rsc for public or persisted contracts, bradfitz for decoders and partial I/O, filosottile for attacker-controlled trust decisions, dvyukov for local races and goroutine ownership, mitchellh for package boundaries, kamstrup for demonstrated sibling repetition, peterbourgon for runtime lifecycle, armon for cross-node invariants, tsenart for overload paths, dgryski for performance claims, rakyll for production diagnosis, and robpike for simplicity",
+  "defaultMaxReviewRounds": 3,
+  "maxAllowedReviewRounds": 6,
   "judges": [
     {
       "label": "robpike",
       "displayName": "Rob Pike",
+      "lensId": "simplicity",
       "lens": "Simplicity",
       "path": "judges/robpike.md",
-      "method": "methods/robpike.md"
+      "method": "methods/robpike.md",
+      "appliesWhen": "the change introduces or rearranges concepts, abstractions, indirection, naming, or control flow",
+      "rules": [
+        { "id": "simplicity.unnecessary-indirection", "severity": "major" },
+        { "id": "simplicity.duplicate-path", "severity": "major" },
+        { "id": "simplicity.speculative-generality", "severity": "major" },
+        { "id": "simplicity.concept-overload", "severity": "minor" },
+        { "id": "simplicity.context-dependent-name", "severity": "minor" },
+        { "id": "simplicity.hidden-control-flow", "severity": "major" }
+      ],
+      "sources": [
+        "https://go.dev/talks/2015/simplicity-is-complicated.slide",
+        "https://go-proverbs.github.io/"
+      ]
     },
     {
       "label": "bradfitz",
       "displayName": "Brad Fitzpatrick",
-      "lens": "Safety",
+      "lensId": "input-integrity",
+      "lens": "Input Integrity",
       "path": "judges/bradfitz.md",
-      "method": "methods/bradfitz.md"
+      "method": "methods/bradfitz.md",
+      "appliesWhen": "the change parses, decodes, frames, reads, writes, or recovers data across an input or storage boundary",
+      "rules": [
+        { "id": "input.unbounded-allocation", "severity": "major" },
+        { "id": "input.unchecked-length", "severity": "major" },
+        { "id": "input.partial-corruption", "severity": "blocker" },
+        { "id": "input.unknown-format", "severity": "major" },
+        { "id": "input.error-context", "severity": "minor" },
+        { "id": "input.swallowed-cause", "severity": "minor" },
+        { "id": "input.malformed-panic", "severity": "blocker" }
+      ],
+      "sources": [
+        "https://github.com/bradfitz",
+        "https://go.dev/doc/fuzz/"
+      ]
     },
     {
       "label": "rsc",
       "displayName": "Russ Cox",
-      "lens": "Longevity",
+      "lensId": "contract-evolution",
+      "lens": "Contract Evolution",
       "path": "judges/rsc.md",
-      "method": "methods/rsc.md"
+      "method": "methods/rsc.md",
+      "appliesWhen": "the change creates or alters an exported API, implemented interface, command contract, configuration, or persisted or wire representation",
+      "rules": [
+        { "id": "contract.unversioned-format", "severity": "major" },
+        { "id": "contract.ambiguous-evolution", "severity": "major" },
+        { "id": "contract.unstable-promised-encoding", "severity": "major" },
+        { "id": "contract.breaking-change", "severity": "blocker" },
+        { "id": "contract.undocumented-promise", "severity": "minor" },
+        { "id": "contract.rigid-shape", "severity": "minor" },
+        { "id": "contract.ambient-meaning", "severity": "major" }
+      ],
+      "sources": [
+        "https://research.swtch.com/vgo-principles",
+        "https://go.dev/doc/modules/version-numbers"
+      ]
     },
     {
       "label": "mitchellh",
       "displayName": "Mitchell Hashimoto",
-      "lens": "Composition & Boundaries",
+      "lensId": "package-boundaries",
+      "lens": "Package Boundaries",
       "path": "judges/mitchellh.md",
-      "method": "methods/mitchellh.md"
+      "method": "methods/mitchellh.md",
+      "appliesWhen": "the change creates a package seam, reusable component, dependency boundary, or extension point",
+      "rules": [
+        { "id": "boundary.policy-in-mechanism", "severity": "major" },
+        { "id": "boundary.hidden-lifetime", "severity": "major" },
+        { "id": "boundary.application-coupling", "severity": "major" },
+        { "id": "boundary.representation-leak", "severity": "major" },
+        { "id": "boundary.ambiguous-ownership", "severity": "minor" },
+        { "id": "boundary.transport-leak", "severity": "minor" },
+        { "id": "boundary.ambient-config", "severity": "minor" },
+        { "id": "boundary.closed-extension", "severity": "major" }
+      ],
+      "sources": [
+        "https://github.com/mitchellh",
+        "https://github.com/hashicorp/go-plugin"
+      ]
     },
     {
       "label": "kamstrup",
       "displayName": "Mikkel Kamstrup Erlandsen",
+      "lensId": "composition-reuse",
       "lens": "Composition & Reuse",
       "path": "judges/kamstrup.md",
-      "method": "methods/kamstrup.md"
+      "method": "methods/kamstrup.md",
+      "appliesWhen": "the change has at least two concrete sibling mechanisms or duplicates an existing repository mechanism",
+      "rules": [
+        { "id": "reuse.repeated-stateful-shape", "severity": "major" },
+        { "id": "reuse.duplicate-mechanism", "severity": "major" },
+        { "id": "reuse.ownership-copy", "severity": "major" },
+        { "id": "reuse.inconsistent-siblings", "severity": "major" },
+        { "id": "reuse.legacy-boilerplate", "severity": "minor" },
+        { "id": "reuse.state-threading", "severity": "minor" },
+        { "id": "reuse.ambiguous-copy", "severity": "minor" },
+        { "id": "reuse.framework-extraction", "severity": "major" }
+      ],
+      "sources": [
+        "https://github.com/kamstrup",
+        "https://github.com/axiomhq"
+      ]
     },
     {
       "label": "peterbourgon",
       "displayName": "Peter Bourgon",
-      "lens": "Operability",
+      "lensId": "runtime-lifecycle",
+      "lens": "Runtime Lifecycle",
       "path": "judges/peterbourgon.md",
-      "method": "methods/peterbourgon.md"
+      "method": "methods/peterbourgon.md",
+      "appliesWhen": "the change wires a service, command, dependency, background task, endpoint, or long-lived resource",
+      "rules": [
+        { "id": "lifecycle.hidden-dependency", "severity": "major" },
+        { "id": "lifecycle.init-side-effect", "severity": "major" },
+        { "id": "lifecycle.unbounded-call", "severity": "major" },
+        { "id": "lifecycle.orphan-goroutine", "severity": "major" },
+        { "id": "lifecycle.missing-signal", "severity": "minor" },
+        { "id": "lifecycle.leaf-config", "severity": "minor" },
+        { "id": "lifecycle.nonisolated-failure", "severity": "minor" },
+        { "id": "lifecycle.unstructured-log", "severity": "minor" },
+        { "id": "lifecycle.mutable-singleton", "severity": "major" },
+        { "id": "lifecycle.untestable-dependency", "severity": "major" }
+      ],
+      "sources": [
+        "https://peter.bourgon.org/go-best-practices-2016/",
+        "https://github.com/peterbourgon"
+      ]
     },
     {
       "label": "armon",
       "displayName": "Armon Dadgar",
-      "lens": "Distributed Correctness",
+      "lensId": "distributed-invariants",
+      "lens": "Distributed Invariants",
       "path": "judges/armon.md",
-      "method": "methods/armon.md"
+      "method": "methods/armon.md",
+      "appliesWhen": "the change crosses a node, process, shared-store, durable-state, or coordination boundary",
+      "rules": [
+        { "id": "distributed.nonidempotent-retry", "severity": "blocker" },
+        { "id": "distributed.wallclock-order", "severity": "major" },
+        { "id": "distributed.crash-gap", "severity": "blocker" },
+        { "id": "distributed.splitbrain-detector", "severity": "blocker" },
+        { "id": "distributed.unsynchronized-state", "severity": "major" },
+        { "id": "distributed.delivery-assumption", "severity": "major" },
+        { "id": "distributed.double-leader", "severity": "blocker" },
+        { "id": "distributed.committed-data-loss", "severity": "blocker" }
+      ],
+      "sources": [
+        "https://github.com/hashicorp/raft",
+        "https://github.com/hashicorp/serf"
+      ]
     },
     {
       "label": "tsenart",
       "displayName": "Tomás Senart",
-      "lens": "Behavior Under Load",
+      "lensId": "overload-control",
+      "lens": "Overload Control",
       "path": "judges/tsenart.md",
-      "method": "methods/tsenart.md"
+      "method": "methods/tsenart.md",
+      "appliesWhen": "the change affects admission, queues, pools, fan-out, retries, or work proportional to caller-controlled load",
+      "rules": [
+        { "id": "load.unbounded-admission", "severity": "blocker" },
+        { "id": "load.unbounded-buffer", "severity": "major" },
+        { "id": "load.lock-across-io", "severity": "major" },
+        { "id": "load.request-amplification", "severity": "major" },
+        { "id": "load.missing-full-policy", "severity": "major" },
+        { "id": "load.retry-amplification", "severity": "major" },
+        { "id": "load.blocked-cancellation", "severity": "minor" }
+      ],
+      "sources": [
+        "https://github.com/tsenart/vegeta",
+        "https://github.com/tsenart"
+      ]
     },
     {
       "label": "dgryski",
       "displayName": "Damian Gryski",
-      "lens": "Measured Performance",
+      "lensId": "performance-evidence",
+      "lens": "Performance Evidence",
       "path": "judges/dgryski.md",
-      "method": "methods/dgryski.md"
+      "method": "methods/dgryski.md",
+      "appliesWhen": "the change makes a performance claim, changes a supplied-profile hot path, or adds measurable work to a symbol covered by an adjacent benchmark",
+      "rules": [
+        { "id": "performance.no-baseline", "severity": "major", "remediation": "external-evidence" },
+        { "id": "performance.cleverness-unmeasured", "severity": "major", "remediation": "external-evidence" },
+        { "id": "performance.cache-no-model", "severity": "major", "remediation": "external-evidence" },
+        { "id": "performance.benchmark-setup", "severity": "major", "remediation": "code" },
+        { "id": "performance.hotpath-work-unmeasured", "severity": "major", "remediation": "external-evidence" },
+        { "id": "performance.cost-unquantified", "severity": "minor", "remediation": "external-evidence" },
+        { "id": "performance.unrealistic-input", "severity": "minor", "remediation": "code" },
+        { "id": "performance.missing-allocation-metric", "severity": "minor", "remediation": "external-evidence" },
+        { "id": "performance.magic-threshold", "severity": "minor", "remediation": "external-evidence" },
+        { "id": "performance.dishonest-benchmark", "severity": "blocker", "remediation": "code" }
+      ],
+      "sources": [
+        "https://github.com/dgryski/go-perfbook",
+        "https://pkg.go.dev/golang.org/x/perf/cmd/benchstat"
+      ]
     },
     {
       "label": "filosottile",
       "displayName": "Filippo Valsorda",
-      "lens": "Security Posture",
+      "lensId": "security-boundaries",
+      "lens": "Security Boundaries",
       "path": "judges/filosottile.md",
-      "method": "methods/filosottile.md"
+      "method": "methods/filosottile.md",
+      "appliesWhen": "the change handles attacker-controlled data, identity, privilege, secrets, cryptography, or an injection-capable sink",
+      "rules": [
+        { "id": "security.secret-compare", "severity": "major" },
+        { "id": "security.insecure-random", "severity": "blocker" },
+        { "id": "security.injection", "severity": "blocker" },
+        { "id": "security.secret-disclosure", "severity": "blocker" },
+        { "id": "security.tls-verification", "severity": "blocker" },
+        { "id": "security.internal-leak", "severity": "minor" },
+        { "id": "security.custom-primitive", "severity": "major" },
+        { "id": "security.path-escape", "severity": "blocker" },
+        { "id": "security.auth-bypass", "severity": "blocker" }
+      ],
+      "sources": [
+        "https://words.filippo.io/",
+        "https://github.com/FiloSottile"
+      ]
     },
     {
       "label": "rakyll",
       "displayName": "Jaana Dogan",
-      "lens": "Profiling & Diagnosability",
+      "lensId": "production-diagnostics",
+      "lens": "Production Diagnostics",
       "path": "judges/rakyll.md",
-      "method": "methods/rakyll.md"
+      "method": "methods/rakyll.md",
+      "appliesWhen": "the change runs in a long-lived process and affects attribution, profiling, tracing, blocking, or diagnostic surfaces",
+      "rules": [
+        { "id": "diagnostics.dropped-context", "severity": "major" },
+        { "id": "diagnostics.unattributed-worker", "severity": "major" },
+        { "id": "diagnostics.opaque-poll-wait", "severity": "minor" },
+        { "id": "diagnostics.unnamed-goroutine", "severity": "minor" },
+        { "id": "diagnostics.unsupported-hotspot", "severity": "minor" },
+        { "id": "diagnostics.profile-noise", "severity": "minor" },
+        { "id": "diagnostics.surface-removal", "severity": "major" }
+      ],
+      "sources": [
+        "https://rakyll.org/",
+        "https://go.dev/doc/diagnostics"
+      ]
+    },
+    {
+      "label": "dvyukov",
+      "displayName": "Dmitry Vyukov",
+      "lensId": "local-concurrency",
+      "lens": "Local Concurrency",
+      "path": "judges/dvyukov.md",
+      "method": "methods/dvyukov.md",
+      "appliesWhen": "the change shares mutable state between goroutines, starts goroutines, coordinates channels, or changes synchronization",
+      "rules": [
+        { "id": "concurrency.unsynchronized-access", "severity": "blocker" },
+        { "id": "concurrency.copied-lock", "severity": "major" },
+        { "id": "concurrency.send-close-race", "severity": "blocker" },
+        { "id": "concurrency.waitgroup-order", "severity": "blocker" },
+        { "id": "concurrency.goroutine-leak", "severity": "major" },
+        { "id": "concurrency.channel-ownership", "severity": "minor" },
+        { "id": "concurrency.lock-invariant", "severity": "major" }
+      ],
+      "sources": [
+        "https://go.dev/blog/race-detector",
+        "https://go.dev/doc/articles/race_detector"
+      ]
     }
   ]
 }

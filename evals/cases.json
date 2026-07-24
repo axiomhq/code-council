@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "judge": "robpike",
+      "positive": {
+        "description": "An interface and factory hide a single concrete call path.",
+        "patch": "+type runner interface { Run() error }\n+func newRunner() runner { return &onlyRunner{} }",
+        "applicable": true,
+        "mustFind": ["simplicity.unnecessary-indirection"]
+      },
+      "negative": {
+        "description": "A short direct helper replaces duplicated control flow.",
+        "patch": "+func validID(id string) bool { return id != \"\" }",
+        "applicable": true,
+        "mustNotFind": ["simplicity.unnecessary-indirection", "simplicity.speculative-generality"]
+      },
+      "applicability": {
+        "description": "A constant value changes without changing concepts or control flow.",
+        "patch": "-const timeout = time.Second\n+const timeout = 2 * time.Second",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A missing authentication check belongs to the security lens.",
+        "patch": "+func admin(w http.ResponseWriter, r *http.Request) { deleteAll() }",
+        "applicable": false,
+        "deferTo": "filosottile"
+      }
+    },
+    {
+      "judge": "bradfitz",
+      "positive": {
+        "description": "A wire length is trusted before allocation.",
+        "patch": "+n := binary.LittleEndian.Uint64(header)\n+buf := make([]byte, n)",
+        "applicable": true,
+        "mustFind": ["input.unchecked-length"]
+      },
+      "negative": {
+        "description": "A decoder rejects an oversized frame before allocation.",
+        "patch": "+if n > maxFrame { return ErrFrameTooLarge }\n+buf := make([]byte, n)",
+        "applicable": true,
+        "mustNotFind": ["input.unchecked-length", "input.unbounded-allocation"]
+      },
+      "applicability": {
+        "description": "An internal arithmetic helper does not cross an input boundary.",
+        "patch": "+func add(a, b int) int { return a + b }",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "An unbounded request queue belongs to overload control.",
+        "patch": "+pending = append(pending, request)",
+        "applicable": false,
+        "deferTo": "tsenart"
+      }
+    },
+    {
+      "judge": "rsc",
+      "positive": {
+        "description": "An exported method is removed without a compatibility path.",
+        "patch": "-func (c *Client) LegacyCall() error { return c.call() }",
+        "applicable": true,
+        "mustFind": ["contract.breaking-change"]
+      },
+      "negative": {
+        "description": "A deprecated exported method remains as a forwarding shim.",
+        "patch": "+// LegacyCall is deprecated: use Call.\n+func (c *Client) LegacyCall() error { return c.Call() }",
+        "applicable": true,
+        "mustNotFind": ["contract.breaking-change"]
+      },
+      "applicability": {
+        "description": "A private local variable is renamed.",
+        "patch": "-n := len(items)\n+count := len(items)",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A race in private cache state belongs to local concurrency.",
+        "patch": "+go func() { cache[key] = value }()",
+        "applicable": false,
+        "deferTo": "dvyukov"
+      }
+    },
+    {
+      "judge": "mitchellh",
+      "positive": {
+        "description": "A reusable package reads application-global configuration.",
+        "patch": "+func New() *Client { return &Client{url: os.Getenv(\"APP_URL\")} }",
+        "applicable": true,
+        "mustFind": ["boundary.ambient-config"]
+      },
+      "negative": {
+        "description": "The caller supplies package configuration explicitly.",
+        "patch": "+func New(cfg Config) *Client { return &Client{url: cfg.URL} }",
+        "applicable": true,
+        "mustNotFind": ["boundary.ambient-config", "boundary.application-coupling"]
+      },
+      "applicability": {
+        "description": "A leaf function fixes an off-by-one error without changing a seam.",
+        "patch": "-return items[:n-1]\n+return items[:n]",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A parser allocation from an untrusted length belongs to input integrity.",
+        "patch": "+payload := make([]byte, declaredLength)",
+        "applicable": false,
+        "deferTo": "bradfitz"
+      }
+    },
+    {
+      "judge": "kamstrup",
+      "positive": {
+        "description": "A third sibling repeats the same stateful lifecycle mechanism.",
+        "patch": "+type ThirdWorker struct { stop chan struct{}; done chan struct{} }\n+func (w *ThirdWorker) Start() {}\n+func (w *ThirdWorker) Stop() {}",
+        "applicable": true,
+        "mustFind": ["reuse.repeated-stateful-shape"]
+      },
+      "negative": {
+        "description": "Two similar-looking functions encode deliberately different domain rules.",
+        "patch": "+func debitLimit(a Account) int { return a.DebitCap }\n+func creditLimit(a Account) int { return a.CreditCap }",
+        "applicable": true,
+        "mustNotFind": ["reuse.duplicate-mechanism", "reuse.framework-extraction"]
+      },
+      "applicability": {
+        "description": "Only one concrete mechanism exists in the repository evidence.",
+        "patch": "+func refreshToken() error { return nil }",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A single speculative interface belongs to the simplicity lens.",
+        "patch": "+type TokenRefresher interface { Refresh() error }",
+        "applicable": false,
+        "deferTo": "robpike"
+      }
+    },
+    {
+      "judge": "peterbourgon",
+      "positive": {
+        "description": "A background goroutine has no cancellation or join path.",
+        "patch": "+func Start() { go pollForever() }",
+        "applicable": true,
+        "mustFind": ["lifecycle.orphan-goroutine"]
+      },
+      "negative": {
+        "description": "The component accepts cancellation and exposes a completion signal.",
+        "patch": "+func Start(ctx context.Context) <-chan error { return run(ctx) }",
+        "applicable": true,
+        "mustNotFind": ["lifecycle.orphan-goroutine", "lifecycle.hidden-dependency"]
+      },
+      "applicability": {
+        "description": "A pure value transformation creates no runtime resource.",
+        "patch": "+func normalize(s string) string { return strings.TrimSpace(s) }",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "An exported wire shape change belongs to contract evolution.",
+        "patch": "-type Reply struct { ID string }\n+type Reply struct { Key string }",
+        "applicable": false,
+        "deferTo": "rsc"
+      }
+    },
+    {
+      "judge": "armon",
+      "positive": {
+        "description": "A retried remote mutation has no idempotency key.",
+        "patch": "+for attempt := 0; attempt < 3; attempt++ { err = client.Charge(amount) }",
+        "applicable": true,
+        "mustFind": ["distributed.nonidempotent-retry"]
+      },
+      "negative": {
+        "description": "The caller supplies a stable operation ID across retries.",
+        "patch": "+for attempt := 0; attempt < 3; attempt++ { err = client.Charge(opID, amount) }",
+        "applicable": true,
+        "mustNotFind": ["distributed.nonidempotent-retry"]
+      },
+      "applicability": {
+        "description": "A process-local slice operation crosses no distributed boundary.",
+        "patch": "+items = append(items, item)",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A local unsynchronized map belongs to the local concurrency lens.",
+        "patch": "+go func() { local[key] = value }()",
+        "applicable": false,
+        "deferTo": "dvyukov"
+      }
+    },
+    {
+      "judge": "tsenart",
+      "positive": {
+        "description": "Caller-controlled work enters an unbounded in-memory queue.",
+        "patch": "+func Submit(job Job) { queue = append(queue, job) }",
+        "applicable": true,
+        "mustFind": ["load.unbounded-admission"]
+      },
+      "negative": {
+        "description": "A bounded channel rejects work with an explicit full policy.",
+        "patch": "+select { case queue <- job: return nil; default: return ErrBusy }",
+        "applicable": true,
+        "mustNotFind": ["load.unbounded-admission", "load.missing-full-policy"]
+      },
+      "applicability": {
+        "description": "A fixed-size local array is independent of caller load.",
+        "patch": "+var digest [32]byte",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A cross-node retry without idempotency belongs to distributed invariants.",
+        "patch": "+return retry(func() error { return remote.Create(record) })",
+        "applicable": false,
+        "deferTo": "armon"
+      }
+    },
+    {
+      "judge": "dgryski",
+      "positive": {
+        "description": "A performance claim replaces clear code without a benchmark baseline.",
+        "patch": "+// Faster than encoding/json.\n+func encodeFast(v Value) []byte { return unsafeEncode(v) }",
+        "applicable": true,
+        "mustFind": ["performance.no-baseline"]
+      },
+      "negative": {
+        "description": "The patch includes before/after benchmark and allocation evidence.",
+        "patch": "+// benchstat: -18.2% ns/op, -1 alloc/op across representative inputs.",
+        "applicable": true,
+        "mustNotFind": ["performance.no-baseline", "performance.missing-allocation-metric"]
+      },
+      "advisory": {
+        "description": "Correctness validation adds a measurable pass to benchmark-covered decoding without making a speed claim.",
+        "patch": "+for _, register := range regs { if register > maxRho { return ErrorInvalidData } }",
+        "applicable": true,
+        "mustFind": ["performance.cost-unquantified"],
+        "mustNotFind": ["performance.hotpath-work-unmeasured"],
+        "expectedVerdict": "PASS"
+      },
+      "applicability": {
+        "description": "A correctness fix makes no performance claim and has no supplied profile.",
+        "patch": "-if err != nil { return nil }\n+if err != nil { return err }",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A panic on malformed input belongs to input integrity.",
+        "patch": "+return fields[4]",
+        "applicable": false,
+        "deferTo": "bradfitz"
+      }
+    },
+    {
+      "judge": "filosottile",
+      "positive": {
+        "description": "User input is concatenated into a shell command.",
+        "patch": "+cmd := exec.Command(\"sh\", \"-c\", \"lookup \" + r.FormValue(\"name\"))",
+        "applicable": true,
+        "mustFind": ["security.injection"]
+      },
+      "negative": {
+        "description": "Arguments are passed directly without a shell interpreter.",
+        "patch": "+cmd := exec.Command(\"lookup\", r.FormValue(\"name\"))",
+        "applicable": true,
+        "mustNotFind": ["security.injection"]
+      },
+      "applicability": {
+        "description": "A private numeric helper handles no untrusted data or privilege.",
+        "patch": "+func clamp(n int) int { return min(max(n, 0), 10) }",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "An internal package dependency leak belongs to package boundaries.",
+        "patch": "+func New(db *postgres.InternalPool) *Service",
+        "applicable": false,
+        "deferTo": "mitchellh"
+      }
+    },
+    {
+      "judge": "rakyll",
+      "positive": {
+        "description": "A remote request has no trace or metric correlation.",
+        "patch": "+resp, err := client.Do(req)\n+return resp, err",
+        "applicable": true,
+        "mustFind": ["diagnostics.dropped-context"]
+      },
+      "negative": {
+        "description": "A request records bounded latency and propagates trace context.",
+        "patch": "+req = req.WithContext(traceCtx)\n+defer latency.Observe(time.Since(start).Seconds())",
+        "applicable": true,
+        "mustNotFind": ["diagnostics.dropped-context", "diagnostics.profile-noise"]
+      },
+      "applicability": {
+        "description": "A pure parser helper does not alter production diagnosis paths.",
+        "patch": "+func trimPrefix(s string) string { return strings.TrimPrefix(s, \"v\") }",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A goroutine leak belongs to runtime lifecycle.",
+        "patch": "+go pollForever()",
+        "applicable": false,
+        "deferTo": "peterbourgon"
+      }
+    },
+    {
+      "judge": "dvyukov",
+      "positive": {
+        "description": "Two goroutines write a map without synchronization.",
+        "patch": "+go func() { cache[\"a\"] = 1 }()\n+go func() { cache[\"b\"] = 2 }()",
+        "applicable": true,
+        "mustFind": ["concurrency.unsynchronized-access"]
+      },
+      "negative": {
+        "description": "All map access is protected by the same mutex.",
+        "patch": "+mu.Lock()\n+cache[key] = value\n+mu.Unlock()",
+        "applicable": true,
+        "mustNotFind": ["concurrency.unsynchronized-access", "concurrency.lock-invariant"]
+      },
+      "applicability": {
+        "description": "Sequential code has no goroutine, shared mutable state, channel, or lock.",
+        "patch": "+total := subtotal + tax",
+        "applicable": false
+      },
+      "crossLens": {
+        "description": "A retry across a remote boundary belongs to distributed invariants.",
+        "patch": "+return retry(client.Commit)",
+        "applicable": false,
+        "deferTo": "armon"
+      }
+    }
+  ]
+}

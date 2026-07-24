@@ -3,19 +3,13 @@
 **Named Go engineering perspectives review your code and explain every
 deduction.**
 
-GoLegends is the Go review tool I built for myself. Its judges are Markdown
-rubrics shaped by public writing, talks, and open-source work from engineers I
-have learned from. They review independently, cite the code behind every
-deduction, and can optionally deliberate over one guarded fix.
+GoLegends is a Go-only review tool whose judges keep the names and voices of
+engineers whose public work shaped each perspective. Names are the human-facing
+identities; stable lens IDs and rule IDs are the machine contract. The people
+are not affiliated with, endorsing, or personally participating in reviews.
 
-The project is Go-only by design. It does not try to be a generic review
-framework or predict what another language implementation might need.
-
-GoLegends was designed for Claude Code first. The `/goreview` command uses its
-Workflow runtime to coordinate parallel judges, deliberation, guarded fixes,
-and re-review. The Codex skill follows the same protocol and reads the same
-judge rubrics, but adapts that orchestration to Codex rather than running the
-Claude workflow.
+Judges review one immutable diff independently, use only authorized rules and
+severity, cite exact code, and can optionally deliberate over one guarded fix.
 
 ## Install
 
@@ -41,6 +35,7 @@ Invoke `/goreview` in Claude Code or `$goreview` in Codex.
 /goreview
 /goreview list
 /goreview robpike rsc
+/goreview dvyukov -- pkg/worker
 /goreview filosottile -- pkg/auth
 /goreview robpike -- pr 123
 /goreview:add @davecheney
@@ -49,66 +44,63 @@ Invoke `/goreview` in Claude Code or `$goreview` in Codex.
 /goreview --fix --max-rounds 3 robpike rsc
 ```
 
-Everything after the literal `--` is review scope. Without a scope, GoLegends
-reviews the current staged and unstaged working-tree change.
+Everything after the literal `--` is scope. Without scope, GoLegends reviews
+the staged and unstaged working-tree change.
 
-## Scores first, deductions second
+## Immutable, rule-authorized review
 
-Each judge reports its score first, followed by the cited deductions that
-explain it. The engine verifies the arithmetic and renders one compact
-scorecard:
+Before a judge starts, the adapter captures HEAD, exact diff and SHA-256, UTC
+time, and the full contents of every changed file. It also records host, model,
+and config hashes. Judges receive only read/search tools.
+
+Every deduction contains:
+
+- a stable rule ID and configured severity;
+- a `code` or `external-evidence` remediation class;
+- one primary changed-file path, symbol, line range, and exact excerpt;
+- up to three supporting locations;
+- one factual explanation; and
+- one minimal proposed change.
+
+The engine rejects invented rules, changed severity, mismatched primary
+excerpts, duplicate fingerprints, and incorrect score arithmetic.
 
 ```text
 ROB PIKE — Simplicity: 7/10 — FAIL
-−2  sparse.go:set.ForEach — the wrapper creates two ways to iterate one set
-−1  sparse.go:set.add — Has followed by Add performs two lookups
+−3 MAJOR  sparse.go:41:set.ForEach — the wrapper creates a second iteration path with no distinct contract
 Top fix: collapse the wrapper and use the underlying set API directly
 ```
 
-Every applicable judge starts at 10. Only cited deductions lower the score. The
-engine rejects any score that does not match those deductions, then derives the
-PASS/FAIL verdict. A score of 8 or higher passes. Unverified observations carry
-zero points and cannot drive an automatic fix.
+Severity points are `minor=1`, `major=3`, and `blocker=10`. Major and blocker
+findings fail even if a numerical threshold alone would pass. Minor findings
+remain visible and can accumulate below the score threshold. Unverified
+observations carry zero points and cannot drive a fix.
 
-See [the complete example](docs/example-scorecard.md).
+N/A means the lens did not apply; it is not assent. A run with no applicable
+judge returns `INSUFFICIENT_COVERAGE`, never `ACCEPTED`.
 
 ## Judges
 
-The defaults are `rsc`, `bradfitz`, and `robpike`.
+Defaults are `rsc`, `bradfitz`, and `robpike`.
 
-| Judge | Default | Lens |
-|---|:---:|---|
-| `robpike` | ✓ | Simplicity and deletability |
-| `bradfitz` | ✓ | Input safety and failure isolation |
-| `rsc` | ✓ | Contract longevity |
-| `mitchellh` |  | Composition and boundaries |
-| `kamstrup` |  | Composition, reuse, and ownership |
-| `peterbourgon` |  | Operability |
-| `armon` |  | Distributed correctness |
-| `tsenart` |  | Behavior under load |
-| `dgryski` |  | Measured performance |
-| `filosottile` |  | Security posture |
-| `rakyll` |  | Profiling and diagnosability |
+| Judge | Stable lens ID | Default | Lens |
+|---|---|:---:|---|
+| `robpike` | `simplicity` | ✓ | Simplicity |
+| `bradfitz` | `input-integrity` | ✓ | Parser and I/O integrity |
+| `rsc` | `contract-evolution` | ✓ | Contract evolution |
+| `mitchellh` | `package-boundaries` |  | Package boundaries |
+| `kamstrup` | `composition-reuse` |  | Demonstrated composition and reuse |
+| `peterbourgon` | `runtime-lifecycle` |  | Runtime lifecycle |
+| `armon` | `distributed-invariants` |  | Distributed invariants |
+| `tsenart` | `overload-control` |  | Overload control |
+| `dgryski` | `performance-evidence` |  | Performance evidence |
+| `filosottile` | `security-boundaries` |  | Security boundaries |
+| `rakyll` | `production-diagnostics` |  | Production diagnostics |
+| `dvyukov` | `local-concurrency` |  | Local concurrency |
 
-### Repository-pinned judges
-
-An unknown name never triggers a search during review. Discovery is explicit:
-
-```text
-/goreview:add @github-handle
-```
-
-GoLegends reads bounded public GitHub profile metadata and the six most
-recently pushed owner repositories, pins each repository source to its current
-default-branch revision, and drafts one narrow Go review lens. It does not read
-README files, source files, commit messages, or linked websites.
-
-You see the proposed sources, deductions, and review sequence before anything
-is written. After approval, the judge is stored in
-`.goreview/judges/<handle>/` and invoked as `@handle`. Pinned judges are
-repository-local, validated before use, and never automatically selected or
-silently refreshed. They use a generic read-only guest seat; the approved files
-provide the complete rubric and method.
+Each judge declares when it applies, when it does not, what it owns, what it
+does not own, authorized rule IDs, required evidence, and at least two public
+source references. Subjective design preferences cannot auto-fail a change.
 
 ## Repository configuration
 
@@ -121,85 +113,117 @@ Add `.goreview.json` at the reviewed repository root:
 }
 ```
 
-For read-only review, explicit judges override repository judges, which override
-the shipped defaults. Fix mode ignores repository judges and uses explicit
-judges or automatic three-judge selection.
+Judge precedence is consistent in read-only and fix mode:
 
-Fix-mode review rounds use this precedence:
+1. Explicit command judges.
+2. Repository judges.
+3. Shipped defaults in read-only mode, or automatic named-judge selection in
+   fix mode.
 
-1. `--max-rounds N`
-2. Repository `maxReviewRounds`
-3. The shipped default of 5
-
-The hard range is 2–10. Five review rounds permit at most four fix attempts;
-the final allowed round never edits because no round would remain to verify and
-re-review that edit. Read-only mode always runs one round.
+Round precedence is command option, repository configuration, then the shipped
+default of three. The hard range is 2–6. The final round never edits.
 
 ## Guarded fixes
 
 `--fix` writes files. Before each edit:
 
-1. Every selected judge sees the combined cited deductions and returns AGREE,
+1. Every selected named judge sees the same cited findings and returns AGREE,
    AMEND, or WITHDRAW.
-2. The highest-priority selected judge chairs one coherent plan.
-3. One fixer applies only that plan.
-4. The fixer runs Go formatting plus scoped build, test, and vet checks.
-5. Every selected judge reviews the edited tree again.
+2. A neutral chair produces one coherent plan under invariant-first conflict
+   policy. Named judges never chair.
+3. One fixer applies only that plan using `policy.md`.
+4. An independent verifier—not the fixer—checks changed-file scope,
+   `gofmt -d`, and scoped build, test, and vet commands with exact exit codes.
+5. The verifier captures the next immutable snapshot.
+6. Every selected judge re-reviews that snapshot.
 
-The command serializes writers with an atomic Git-local lock. If an interrupted
-run leaves a stale lock, first verify no GoLegends fixer is active, then remove
-the empty path printed by:
+Finding fingerprints and severity weight track progress. A repeated finding set
+returns `OSCILLATION`; rising risk returns `SCOPE_EXPLOSION`. Verification
+failure is terminal and leaves the working tree for human inspection.
+
+Evidence-only gates do not enter the edit loop. When every blocking finding
+requires an author-supplied benchmark, profile, or other measurement,
+GoLegends returns `EVIDENCE_REQUIRED` immediately with the exact requests. If
+code and evidence findings coexist, it fixes only the code findings, re-reviews,
+and then hands off any remaining evidence.
+
+Damian's performance lens distinguishes a production hot path established by
+supplied profile or budget evidence from code that merely has an adjacent
+benchmark. Correctness or security hardening that adds measurable work to
+benchmark-covered code receives a visible minor advisory and can still pass.
+Explicit performance claims or established hot-path changes without a baseline
+remain blocking evidence requests.
+
+Writers are serialized by an atomic Git-local lock. If an interrupted run
+leaves a stale lock, first verify no GoLegends fixer is active, then inspect:
 
 ```bash
 git rev-parse --git-path goreview-fix.lock
 ```
 
-## Structure
+## Repository-pinned guest judges
 
-The plugin has one canonical source for every review concept:
+Guest discovery is explicit:
+
+```text
+/goreview:add @github-handle
+```
+
+GitHub profile and recent repository metadata establish a bounded identity
+snapshot; repository names and topics are not treated as proof of a person's
+review philosophy. The user supplies and approves the intended narrow basis.
+
+An approved guest contains exactly:
+
+```text
+.goreview/judges/<handle>/
+  profile.json
+  judge.md
+  rules.json
+  method.md
+```
+
+Guests are repository-local, validated before each explicit use, share one
+generic read-only seat, and are never automatically selected or silently
+refreshed.
+
+## Project structure
 
 | Path | Owns |
 |---|---|
-| [`review.json`](plugins/goreview/review.json) | Identity, judge roster, rubric and method links, defaults, priorities, verification, and round limits |
-| [`protocol.md`](plugins/goreview/protocol.md) | Host-neutral review and fix contract |
-| [`policy.md`](plugins/goreview/policy.md) | Go implementation guidance supplied only to the fixer |
-| [`judges/`](plugins/goreview/judges/) | One canonical rubric file per named judge |
-| [`methods/`](plugins/goreview/methods/) | One linked investigation method per named judge |
-| [`workflow.js`](plugins/goreview/workflow.js) | Deduction engine and scorecard renderer |
-| [`fixer.md`](plugins/goreview/fixer.md) | The only write-capable agent |
-| [`judges/guest.md`](plugins/goreview/judges/guest.md) | Generic read-only seat for approved repository-pinned judges |
-| [`scripts/github_judge.py`](plugins/goreview/scripts/github_judge.py) | Bounded public discovery and pinned-judge validation |
-| [`commands/goreview.md`](plugins/goreview/commands/goreview.md) | Thin Claude adapter |
-| [`commands/add.md`](plugins/goreview/commands/add.md) | Explicit GitHub discovery and approval flow |
-| [`skills/goreview/`](plugins/goreview/skills/goreview/) | Thin Codex adapter |
+| [`review.json`](plugins/goreview/review.json) | Named identities, stable lens IDs, rules, severity, sources, pass policy, support agents, verification, and rounds |
+| [`protocol.md`](plugins/goreview/protocol.md) | Host-neutral snapshot, review, fix, and result contract |
+| [`judges/`](plugins/goreview/judges/) | Named voice, applicability, ownership, evidence, and rule explanations |
+| [`methods/`](plugins/goreview/methods/) | Investigation order without rule authority |
+| [`chair.md`](plugins/goreview/chair.md) | Neutral fix-plan reconciliation |
+| [`fixer.md`](plugins/goreview/fixer.md) | The only source-editing seat |
+| [`verifier.md`](plugins/goreview/verifier.md) | Independent exact-command and changed-file verification |
+| [`policy.md`](plugins/goreview/policy.md) | Fixer-only implementation guidance |
+| [`workflow.js`](plugins/goreview/workflow.js) | Snapshot, rule, evidence, score, coverage, progress, and result validation |
+| [`evals/`](evals/) | Human-labelled positive, negative, applicability, and cross-lens fixtures |
 
-Claude's manifest links directly to the canonical judge files. Codex's skill
-reads those same files. Both resolve each selected judge's method through
-`review.json`; rubrics and methods are never copied between adapters. Judge
-scores use only the selected rubric plus cited repository evidence. The method
-orders the investigation but cannot add deductions. The implementation policy
-is loaded only in fix mode and supplied only to the fixer.
-
-See [the architecture](docs/architecture.md) for ownership and data flow.
+See [the architecture](docs/architecture.md).
 
 ## Add a built-in judge
 
-1. Add one rubric under `plugins/goreview/judges/<label>.md`.
-2. Add one investigation method under `plugins/goreview/methods/<label>.md`.
-3. Add its label, display name, lens, rubric path, and method path to
-   `review.json`.
-4. Add the label once to `conflictPriority`.
-5. Add the judge path to `.claude-plugin/plugin.json`.
-6. Run the validation suite below.
+1. Add the named rubric and investigation method.
+2. Add display name, unique stable lens ID, applicability, at least two public
+   sources, and authorized rules to `review.json`.
+3. Add every rule ID to the rubric's Rule catalog with the exact severity.
+4. Add positive, negative, applicability, and cross-lens eval expectations.
+5. Add the judge path to the Claude manifest.
+6. Run the complete validation suite.
 
-Judge labels use lowercase letters, digits, and hyphens and are capped at 64
-characters.
+Named labels and lens IDs use lowercase letters, digits, and hyphens. Rule IDs
+are stable dotted lowercase identifiers.
 
 ## Validate
 
 ```bash
 node --test tests/*.test.cjs
+node --test evals/*.test.cjs
 node --check plugins/goreview/workflow.js
+python3 plugins/goreview/scripts/github_judge.py fetch @octogo --fixture tests/fixtures/github-judge.json
 claude plugin validate --strict plugins/goreview/.claude-plugin/plugin.json
 claude plugin validate --strict .claude-plugin/marketplace.json
 uv run --with pyyaml python "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/goreview
@@ -209,27 +233,21 @@ git diff --check
 
 ## Origin
 
-I started this while working on EventDB, Axiom's object-storage-based database.
-AI helped me move quickly, but too often produced Go that compiled while
-missing foundational design problems—the same problems my colleagues would
-later point out in review.
-
-I began with Rob Pike because I wanted code other people could understand. The
-first result was dramatically simpler. It also exposed the limitation of one
-lens: simple code could still get serialization wrong.
+GoLegends began while working on EventDB, Axiom's object-storage-based
+database. AI-generated Go often compiled while missing design, serialization,
+and failure-path problems that later appeared in human review.
 
 [The first public prompt](https://gist.github.com/seiflotfy/76fdca5cf4fcc8e67bd5899b09320a37)
-put Rob Pike, Brad Fitzpatrick, and Russ Cox into one iterative review loop. I
-kept using it and refining it. Later iterations separated judging from writing,
-required cited evidence, bounded the fix loop, and made each judge independent.
-That process became GoLegends.
+put Rob Pike, Brad Fitzpatrick, and Russ Cox into one iterative loop. Later
+iterations separated judging from writing, required cited evidence, bounded the
+fix loop, and made every judge independent.
 
 ## The names
 
-The judges are homages distilled from each engineer's public writing, talks,
-and open-source work. They are not affiliated with, endorsed by, or personally
-participating in GoLegends reviews. If a referenced person wants their name
-removed, open an issue; it will be changed without argument.
+The names remain because they make the perspectives memorable and acknowledge
+the public work that inspired them. Stable lens IDs keep configuration
+independent from presentation. If a referenced person wants their name removed,
+open an issue; it will be changed without argument.
 
 ## License
 
